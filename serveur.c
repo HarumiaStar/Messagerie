@@ -5,6 +5,64 @@
 #include <string.h>
 #include <unistd.h>
 
+int tabClient[2];
+/*
+// Nos Fonctions depuis le serveur:
+
+    /////////////////////////////////////////////////////////////////////////
+    void EnvoiTailleMessage(int *adressetailleBuffer,int recepteur)
+    {
+        if (send(recepteur, adressetailleBuffer, sizeof(int), 0) == -1)
+        {
+            perror("Taille non envoyé\n");
+            exit(1);
+        }
+        printf("Taille envoyée\n");
+    }
+
+    ////////////////////////////////////////////////////
+
+    void EnvoiMessage(int tailleBuffer, char *message, int recepteur)
+    {
+        if (send(recepteur, message, tailleBuffer, 0) == -1)
+        {
+            perror("message non envoyé\n");
+            exit(1);
+        }
+        printf("Message envoyé\n");
+    }
+
+    ////////////////////////////////////////////////////
+
+    int ReceptionTailleBuffer(int envoyeur)
+    {
+        int tailleBuffer;
+        if (recv(envoyeur, &tailleBuffer, sizeof(int), 0) == -1)
+        {
+            perror("Taille non envoyé\n");
+            exit(1);
+        }
+        printf("la taille %d\n", tailleBuffer);
+        return tailleBuffer;
+    }
+
+    ///////////////////////////////////////////////////////
+    
+    char* ReceptionMessage(int tailleBufferReception, int envoyeur)
+    {
+        char* r = malloc(tailleBufferReception*sizeof(char));
+        if (recv(envoyeur, r, tailleBufferReception, 0) == -1)
+        {
+            perror("Réponse non reçue");
+            exit(1);
+        }
+        printf("Réponse reçue : %s\n", r);
+        return r;
+    }
+
+
+*/
+
 int main(int argc, char *argv[])
 {
 
@@ -46,174 +104,170 @@ int main(int argc, char *argv[])
     printf("Mode écoute\n");
 
 
-// Premier Client:
-    struct sockaddr_in aC;
-    socklen_t lg1 = sizeof(struct sockaddr_in);
-    int dSC1 = accept(dS, (struct sockaddr *)&aC, &lg1);
 
-    if (dSC1 == -1)
-    {
-        perror("Client 1 non connecté)");
-        exit(1);
-    }
-    printf("Client 1 Connecté\n");
-
-
-// Deuxième Client:
-    struct sockaddr_in aC2;
-    socklen_t lg2 = sizeof(struct sockaddr_in);
-    int dSC2 = accept(dS, (struct sockaddr *)&aC2, &lg2);
-    if (dSC2 == -1)
-    {
-        perror("Client 2 non connzcté)");
-        exit(1);
-    }
-    printf("Client 2 Connecté\n");
-
-
-// Nos Fonctions depuis le serveur:
-
-    /////////////////////////////////////////////////////////////////////////
-    void EnvoiTailleMessage(int *tailleBuffer,int recepteur)
-    {
-        if (send(recepteur, &tailleBuffer, sizeof(int), 0) == -1)
-        {
-            perror("Taille non envoyé\n");
-            exit(1);
-        }
-        printf("Taille envoyée\n");
-    }
-
-    ////////////////////////////////////////////////////
-
-    void EnvoiMessage(int tailleBuffer, char *message, int recepteur)
-    {
-        if (send(recepteur, &message, tailleBuffer, 0) == -1)
-        {
-            perror("message non envoyé\n");
-            exit(1);
-        }
-        printf("Message envoyé\n");
-    }
-
-    ////////////////////////////////////////////////////
-
-    int ReceptionTailleBuffer(int envoyeur)
-    {
-        int tailleBuffer;
-        if (recv(envoyeur, &tailleBuffer, sizeof(int), 0) == -1)
-        {
-            perror("Taille non envoyé\n");
-            exit(1);
-        }
-        printf("la taille %d\n", tailleBuffer);
-        return tailleBuffer;
-    }
-
-    ///////////////////////////////////////////////////////
-    
-    char* ReceptionMessage(int tailleBufferReception, int envoyeur)
-    {
-        char* r;
-        if (recv(envoyeur, &r, sizeof(tailleBufferReception), 0) == -1)
-        {
-            perror("Réponse non reçue");
-            exit(1);
-        }
-        printf("Réponse reçue : %s\n", r);
-        return r;
-    }
-
-
-    //Nos variables:
-    int tailleBuffer = 200;
-    char message[tailleBuffer];
-    
-    int tabClient[2] = {dSC1,dSC2};
-    int indexWriter = 0;
-    int indexSending = 1;
 
     // Le code:
-    while (1)
-    {
-        // Reception de la réponse client Writer:
-        int tailleBufferReception = ReceptionTailleBuffer(tabClient[indexWriter]);
-        strcpy(message, ReceptionMessage(tailleBufferReception, tabClient[indexWriter])) ;
 
-        // Envoi au client 2 Sending
-        EnvoiTailleMessage(&tailleBufferReception, tabClient[indexSending]);
-        EnvoiMessage(tailleBufferReception, message, tabClient[indexSending]);
+    while(1){
 
+        // Premier Client:
+        struct sockaddr_in aC;
+        socklen_t lg1 = sizeof(struct sockaddr_in);
+        int dSC1 = accept(dS, (struct sockaddr *)&aC, &lg1);
 
-        // Changement des variables Writer/Sending:
-
-        if (indexWriter == 0){
-            indexSending = 0;
-            indexWriter = 1;
+        if (dSC1 == -1)
+        {
+            perror("Client 1 non connecté)");
+            exit(1);
         }
+        printf("Client 1 Connecté\n");
 
-        else{
-            indexWriter = 0;
-            indexSending = 1;
+
+        // Deuxième Client:
+        struct sockaddr_in aC2;
+        socklen_t lg2 = sizeof(struct sockaddr_in);
+        int dSC2 = accept(dS, (struct sockaddr *)&aC2, &lg2);
+        if (dSC2 == -1)
+        {
+            perror("Client 2 non connecté)");
+            exit(1);
         }
+        printf("Client 2 Connecté\n");
+
+
+        //Nos variables:
+        int tailleBuffer = 200;
+        int tailleBufferReception;
+        char *message;
         
+        tabClient[0] = dSC1;
+        tabClient[1] = dSC2;
+        int indexWriter = 0;
+        int indexSending = 1;
+
+        
+        
+        while (1)
+        {
+            // Reception de la réponse client Writer:
+            printf("%d\n", dSC1);
+
+            
+            if (recv(tabClient[indexWriter], &tailleBufferReception, sizeof(int), 0) == -1)
+            {
+                perror("Taille non envoyé\n");
+                dSC1 = NULL;
+                dSC2 = NULL;
+                break;
+            }
+            printf("la taille %d\n", tailleBufferReception);
+            
+
+            // Reception message
+            char* message1 = malloc(tailleBufferReception*sizeof(char));
+            if (recv(tabClient[indexWriter], message1, tailleBufferReception, 0) == -1)
+            {
+                perror("Réponse non reçue");
+                dSC1 = NULL;
+                dSC2 = NULL;
+                break;
+            }
+            printf("Réponse reçue : %s\n", message1);
+
+
+            // Envoi au client 2 Sending
+            if (send(tabClient[indexSending], &tailleBufferReception, sizeof(int), 0) == -1)
+            {
+                perror("Taille non envoyé\n");
+                dSC1 = NULL;
+                dSC2 = NULL;
+                break;
+            }
+            printf("Taille envoyée\n");
+
+            // Envoie Message
+            if (send(tabClient[indexSending], message1, tailleBufferReception, 0) == -1)
+            {
+                perror("message non envoyé\n");
+                dSC1 = NULL;
+                dSC2 = NULL;
+                break;
+            }
+            printf("Message envoyé\n");
+
+
+            if (strcmp(message1, "fin") == 0){
+                dSC1 = NULL;
+                dSC2 = NULL;
+                printf("Clients déconnectés\n");
+                break;
+            }
+
+            free(message1);
+
+
+            /////////////////
+
+
+            // Reception de la réponse client Writer:
+            printf("%d\n", dSC2);
+
+            
+            if (recv(tabClient[indexSending], &tailleBufferReception, sizeof(int), 0) == -1)
+            {
+                perror("Taille non envoyé\n");
+                dSC1 = NULL;
+                dSC2 = NULL;
+                break;
+            }
+            printf("la taille %d\n", tailleBufferReception);
+            
+
+
+            char* message2 = malloc(tailleBufferReception*sizeof(char));
+            if (recv(tabClient[indexSending], message2, tailleBufferReception, 0) == -1)
+            {
+                perror("Réponse non reçue");
+                dSC1 = NULL;
+                dSC2 = NULL;
+                break;
+            }
+            printf("Réponse reçue : %s\n", message2);
+
+
+            // Envoi au client 2 Sending
+            if (send(tabClient[indexWriter], &tailleBufferReception, sizeof(int), 0) == -1)
+            {
+                perror("Taille non envoyé\n");
+                dSC1 = NULL;
+                dSC2 = NULL;
+                break;
+            }
+            printf("Taille envoyée\n");
+
+            // Envoie Message
+            if (send(tabClient[indexWriter], message2, tailleBufferReception, 0) == -1)
+            {
+                perror("message non envoyé\n");
+                dSC1 = NULL;
+                dSC2 = NULL;
+                break;
+            }
+            printf("Message envoyé\n");
+
+            if (strcmp(message2, "fin") == 0){
+                dSC1 = NULL;
+                dSC2 = NULL;
+                printf("Clients déconnectés\n");
+                break;
+            }
+
+            free(message2);           
+            
+        }
     }
-    /*
-    // Message 1 ////////////////////////////////////////////////////////////////
 
-    if (recv(dSC, &tailleBuffer, sizeof(int), 0) == -1)
-    {
-        perror("Taille non envoyé\n");
-        exit(1);
-    }
-    printf("la taille %d\n", tailleBuffer);
-    char *msg = malloc(tailleBuffer);
-    int nb2 = recv(dSC, msg, tailleBuffer, 0);
-    if (nb2 == -1)
-    {
-        perror("message non reçu");
-        exit(1);
-    }
-
-    printf("Message reçu : %s\n", msg);
-
-    // Fin message 1 /////////////////////////////////////////////////////////
-
-    // Message 2 //////////////////////////////////////////
-    int tailleBuffer2;
-    if (recv(dSC, &tailleBuffer2, sizeof(int), 0) == -1)
-    {
-        perror("Taille non envoyé\n");
-        exit(1);
-    }
-    printf("la taille %d\n", tailleBuffer2);
-
-    char msg2[tailleBuffer2];
-    int nb3 = recv(dSC, msg2, sizeof(msg2), 0);
-    if (nb3 == -1)
-    {
-        perror("message non reçu");
-        exit(1);
-    }
-    printf("Message 2 reçu : %s\n", msg2);
-
-    // Fin message 2 /////////////////////////////////////
-
-
-*/
-// Je sais pas à quoi ça sert :
-/*    int r = 10;
-
-    if (send(dSC, &r, sizeof(int), 0) == -1)
-    {
-        perror("message non envoyé\n");
-        exit(1);
-    }
-    printf("Message Envoyé\n");
-*/
-//
-    shutdown (dSC1, 2);
-    shutdown(dSC2, 2);
     shutdown(dS, 2);
     printf("Fin du programme\n");
 }
+
