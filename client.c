@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    int tailleBuffer = 200;
+
 
     printf("Début programme\n");
 
@@ -37,28 +37,10 @@ int main(int argc, char *argv[])
     }
     printf("Socket Connecté\n");
 
-    // Envoi du premier message :
+    // Variables:
 
-    char m[tailleBuffer]; // Le buffer
-
-    // On get la taille du message en demandant le message à envoyer à l'utilisateur:
-    printf(" Entrez votre message: \n");
-    fgets(m, tailleBuffer, stdin); // on place le message dans le buffer
-    tailleBuffer = strlen(m) + 1;  // on calcul la taille du message
-
-    // on envoi la taille du message au serveur
-    if (send(dS, &tailleBuffer, sizeof(int), 0) == -1)
-    {
-        perror("message non envoyé");
-        exit(1);
-    }
-    // le serveur sait maintenant la taille du message qu'il va récupérer, on lui envoi donc le message
-    if (send(dS, m, tailleBuffer, 0) == -1)
-    {
-        perror("message non envoyé");
-        exit(1);
-    }
-
+    int tailleBuffer = 200;
+    char message[tailleBuffer]; // le bufffer
     //* Fourre tout
     // strcpy(m,"TEST");
 
@@ -68,9 +50,6 @@ int main(int argc, char *argv[])
       m[i] = w[i];
     }*/
 
-    printf("Message Envoyé \n");
-
-    char message[tailleBuffer]; // le bufffer
 
     /////////////////////////////////////////////////////////////////////////
     void EnvoiTailleMessage(int *tailleBuffer)
@@ -96,7 +75,7 @@ int main(int argc, char *argv[])
     }
 
     ////////////////////////////////////////////////////
-    void ReceptionMessage(int tailleBufferReception)
+    char* ReceptionMessage(int tailleBufferReception)
     {
         char *r;
         if (recv(dS, &r, sizeof(tailleBufferReception), 0) == -1)
@@ -105,6 +84,7 @@ int main(int argc, char *argv[])
             exit(1);
         }
         printf("Réponse reçue : %s\n", r);
+        return r;
     }
 
     ////////////////////////////////////////////////////
@@ -120,6 +100,8 @@ int main(int argc, char *argv[])
         printf("la taille %d\n", tailleBuffer);
         return tailleBuffer;
     }
+
+
 
     do
     {
