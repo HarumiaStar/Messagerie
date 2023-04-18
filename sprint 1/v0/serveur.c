@@ -6,62 +6,7 @@
 #include <unistd.h>
 
 int tabClient[2];
-/*
-// Nos Fonctions depuis le serveur:
 
-    /////////////////////////////////////////////////////////////////////////
-    void EnvoiTailleMessage(int *adressetailleBuffer,int recepteur)
-    {
-        if (send(recepteur, adressetailleBuffer, sizeof(int), 0) == -1)
-        {
-            perror("Taille non envoyé\n");
-            exit(1);
-        }
-        printf("Taille envoyée\n");
-    }
-
-    ////////////////////////////////////////////////////
-
-    void EnvoiMessage(int tailleBuffer, char *message, int recepteur)
-    {
-        if (send(recepteur, message, tailleBuffer, 0) == -1)
-        {
-            perror("message non envoyé\n");
-            exit(1);
-        }
-        printf("Message envoyé\n");
-    }
-
-    ////////////////////////////////////////////////////
-
-    int ReceptionTailleBuffer(int envoyeur)
-    {
-        int tailleBuffer;
-        if (recv(envoyeur, &tailleBuffer, sizeof(int), 0) == -1)
-        {
-            perror("Taille non envoyé\n");
-            exit(1);
-        }
-        printf("la taille %d\n", tailleBuffer);
-        return tailleBuffer;
-    }
-
-    ///////////////////////////////////////////////////////
-    
-    char* ReceptionMessage(int tailleBufferReception, int envoyeur)
-    {
-        char* r = malloc(tailleBufferReception*sizeof(char));
-        if (recv(envoyeur, r, tailleBufferReception, 0) == -1)
-        {
-            perror("Réponse non reçue");
-            exit(1);
-        }
-        printf("Réponse reçue : %s\n", r);
-        return r;
-    }
-
-
-*/
 
 int main(int argc, char *argv[])
 {
