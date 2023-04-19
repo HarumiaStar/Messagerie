@@ -20,8 +20,8 @@ Nous nous sommes organisés de la manière suivante :
 Le code se compile de la manière suivante :
 
 ```bash
-gcc -o /out/[votre_version]/serveur /sprint1/[votre_version]/serveur.c
-gcc -o /out/[votre_version]/client /sprint1/[votre_version]/client.c
+gcc -o ./out/[votre_version]/serveur ./sprint1/[votre_version]/serveur.c
+gcc -o ./out/[votre_version]/client ./sprint1/[votre_version]/client.c
 ```
 ### Sujet 1 :
 

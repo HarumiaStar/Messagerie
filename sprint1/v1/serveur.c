@@ -34,7 +34,6 @@ void* client1_vers_client2(){
         }
         printf("Réponse reçue : %s\n", message1);
 
-
         // Envoi au client 2 Sending
         if (send(tabClient[1], &tailleBufferReception, sizeof(int), 0) == -1)
         {
@@ -75,7 +74,6 @@ void* client2_vers_client1(){
             exit(1);
         }
         printf("Réponse reçue : %s\n", message2);
-
 
         // Envoi au client 2 
         if (send(tabClient[0], &tailleBufferReception, sizeof(int), 0) == -1)
@@ -170,11 +168,14 @@ int main(int argc, char *argv[])
         }
         printf("Client 2 Connecté\n");
 
+        tabClient[0] = dSC1;
+        tabClient[1] = dSC2;
+
 
         if( dSC1 != NULL && dSC2 != NULL){
 
-            pthread_create (&thread[0], NULL, client1_vers_client2, (void *)0); // sendTo // receiveFrom
-            pthread_create (&thread[1], NULL, client2_vers_client1, (void *)1); // sendTo // receiveFrom
+            pthread_create (&thread[0], NULL, client1_vers_client2, NULL); // sendTo // receiveFrom
+            pthread_create (&thread[1], NULL, client2_vers_client1, NULL); // sendTo // receiveFrom
 
             pthread_join(thread[0], NULL);
             pthread_join(thread[1], NULL);
@@ -186,5 +187,3 @@ int main(int argc, char *argv[])
     shutdown(dS, 2);
     printf("Fin du programme\n");
 }
-
-
