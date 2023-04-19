@@ -8,95 +8,98 @@
 #include <pthread.h>
 
 
+int tabClient[2];
+int tailleBufferReception;
+
 
 void* client1_vers_client2(){
 
-    // Reception de la réponse client Writer:
+    while (1){
 
-    if (recv(tabClient[indexWriter], &tailleBufferReception, sizeof(int), 0) == -1)
-    {
-        perror("Taille non envoyé\n");
-        exit(1);
+        // Reception de la réponse client Writer:
+        if (recv(tabClient[0], &tailleBufferReception, sizeof(int), 0) == -1)
+        {
+            perror("Taille non envoyé\n");
+            exit(1);
+        }
+        printf("la taille %d\n", tailleBufferReception);
+        
+
+        // Reception message
+        char* message1 = malloc(tailleBufferReception*sizeof(char));
+        if (recv(tabClient[0], message1, tailleBufferReception, 0) == -1)
+        {
+            perror("Réponse non reçue");
+            exit(1);
+        }
+        printf("Réponse reçue : %s\n", message1);
+
+
+        // Envoi au client 2 Sending
+        if (send(tabClient[1], &tailleBufferReception, sizeof(int), 0) == -1)
+        {
+            perror("Taille non envoyé\n");
+            exit(1);
+        }
+        printf("Taille envoyée\n");
+
+        // Envoie Message
+        if (send(tabClient[1], message1, tailleBufferReception, 0) == -1)
+        {
+            perror("message non envoyé\n");
+            exit(1);
+        }
+        printf("Message envoyé\n");
+
     }
-    printf("la taille %d\n", tailleBufferReception);
-    
-
-    // Reception message
-    char* message1 = malloc(tailleBufferReception*sizeof(char));
-    if (recv(tabClient[indexWriter], message1, tailleBufferReception, 0) == -1)
-    {
-        perror("Réponse non reçue");
-        exit(1);
-    }
-    printf("Réponse reçue : %s\n", message1);
-
-
-    // Envoi au client 2 Sending
-    if (send(tabClient[indexSending], &tailleBufferReception, sizeof(int), 0) == -1)
-    {
-        perror("Taille non envoyé\n");
-        exit(1);
-    }
-    printf("Taille envoyée\n");
-
-    // Envoie Message
-    if (send(tabClient[indexSending], message1, tailleBufferReception, 0) == -1)
-    {
-        perror("message non envoyé\n");
-        exit(1);
-    }
-    printf("Message envoyé\n");
 
 }
 
 
 
-void client2_vers_client1(){
+void* client2_vers_client1(){
 
-    // Reception message
-    if (recv(tabClient[indexSending], &tailleBufferReception, sizeof(int), 0) == -1)
-    {
-        perror("Taille non envoyé\n");
-        exit(1);
+    while (1) {
+        // Reception message
+        if (recv(tabClient[1], &tailleBufferReception, sizeof(int), 0) == -1)
+        {
+            perror("Taille non envoyé\n");
+            exit(1);
+        }
+        printf("la taille %d\n", tailleBufferReception);
+        
+        char* message2 = malloc(tailleBufferReception*sizeof(char));
+        if (recv(tabClient[1], message2, tailleBufferReception, 0) == -1)
+        {
+            perror("Réponse non reçue");
+            exit(1);
+        }
+        printf("Réponse reçue : %s\n", message2);
+
+
+        // Envoi au client 2 
+        if (send(tabClient[0], &tailleBufferReception, sizeof(int), 0) == -1)
+        {
+            perror("Taille non envoyé\n");
+            exit(1);
+        }
+        printf("Taille envoyée\n");
+
+        // Envoie Message
+        if (send(tabClient[0], message2, tailleBufferReception, 0) == -1)
+        {
+            perror("message non envoyé\n");
+            exit(1);
+        }
+        printf("Message envoyé\n");
+
+        free(message2);          
     }
-    printf("la taille %d\n", tailleBufferReception);
-    
-
-
-    char* message2 = malloc(tailleBufferReception*sizeof(char));
-    if (recv(tabClient[indexSending], message2, tailleBufferReception, 0) == -1)
-    {
-        perror("Réponse non reçue");
-        exit(1);
-    }
-    printf("Réponse reçue : %s\n", message2);
-
-
-    // Envoi au client 2 
-    if (send(tabClient[indexWriter], &tailleBufferReception, sizeof(int), 0) == -1)
-    {
-        perror("Taille non envoyé\n");
-        exit(1);
-    }
-    printf("Taille envoyée\n");
-
-    // Envoie Message
-    if (send(tabClient[indexWriter], message2, tailleBufferReception, 0) == -1)
-    {
-        perror("message non envoyé\n");
-        exit(1);
-    }
-    printf("Message envoyé\n");
-
-    free(message2);           
-    
-
 
 }
 
-int tabClient[2];
 
-int main2(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 
     if (argc != 2)
@@ -173,26 +176,10 @@ int main2(int argc, char *argv[])
             pthread_create (&thread[0], NULL, client1_vers_client2, (void *)0); // sendTo // receiveFrom
             pthread_create (&thread[1], NULL, client2_vers_client1, (void *)1); // sendTo // receiveFrom
 
+            pthread_join(thread[0], NULL);
+            pthread_join(thread[1], NULL);
 
-        }
-
-
-
-
-
-
-
-        //Nos variables:
-        int tailleBuffer = 200;
-        int tailleBufferReception;
-        char *message;
-        
-        tabClient[0] = dSC1;
-        tabClient[1] = dSC2;
-        int indexWriter = 0;
-        int indexSending = 1;
-
-        
+        }    
         
     }
 
