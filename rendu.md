@@ -62,6 +62,19 @@ Le serveur ne se fermera pas et attendera de nouvelle connection.
 Les clients pourront échanger des messages sans contrainte d'ordre.  
 Leur communication se terminera uniquement si l'un des deux envoie "fin". 
 
+#### V2 :
+Lancez d'abord le serveur :
+```bash
+make serveur VERSION=v2 PORT=3000 NBCLI=2
+```
+Puis lancez les n clients sur des ternimaux différents avec sur chacun des terminaux :
+```bash
+make client VERSION=v2 ADRESSEIP=127.0.0.1 PORT=3000
+```
+Le serveur ne se fermera pas et attendera de nouvelle connection.  
+Les clients pourront échanger des messages sans contrainte d'ordre.  
+Leur communication se terminera uniquement si l'un des deux envoie "fin". 
+
 ---
 
 Co-authored-by: HarumiaStar <HarumiaStar@users.noreply.github.com>  

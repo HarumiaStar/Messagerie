@@ -8,22 +8,25 @@
 #include <pthread.h>
 
 
-int tabClient[2];
+int* tabClient;
 int tailleBufferReception;
+int lenghTabClient;
 
 
-void* client1_vers_client2(){
+void* communication(void* dSC){
+
+    long index = (long) dSC;
 
     while (1){
 
         // Reception de la réponse client Writer:
-        int recvTaille = recv(tabClient[0], &tailleBufferReception, sizeof(int), 0);
+        int recvTaille = recv(tabClient[index], &tailleBufferReception, sizeof(int), 0);
         if (recvTaille == 0){
             printf("Client 1 déconnecté\n");
             pthread_exit(NULL);
         }
         if (recvTaille == -1){
-            perror("Taille non envoyé\n");
+            perror("Taille non reçue\n");
             exit(1);
         }
         printf("la taille %d\n", tailleBufferReception);
@@ -31,9 +34,9 @@ void* client1_vers_client2(){
 
         // Reception message
         char* message1 = malloc(tailleBufferReception*sizeof(char));
-        int recvMessage = recv(tabClient[0], message1, tailleBufferReception, 0);
+        int recvMessage = recv(tabClient[index], message1, tailleBufferReception, 0);
         if(recvMessage == 0){
-            printf("Client 1 déconnecté\n");
+            printf("Client %d déconnecté \n", index);
             pthread_exit(NULL);
         }
         if(recvMessage == -1){
@@ -42,105 +45,58 @@ void* client1_vers_client2(){
         }
         printf("Réponse reçue : %s\n", message1);
 
-        // Envoi au client 2 Sending
-        int sendTaille = send(tabClient[1], &tailleBufferReception, sizeof(int), 0);
-        if (sendTaille == 0){
-            printf("Client 2 déconnecté\n");
-            pthread_exit(NULL);
-        }
-        if (sendTaille == -1){
-            perror("Taille non envoyé\n");
-            exit(1);
-        }
-        printf("Taille envoyée\n");
+        long i = 0;
+        while ( i < lenghTabClient){
+            if (i != index){
+                // Envoi au client
+                int sendTaille = send(tabClient[i], &tailleBufferReception, sizeof(int), 0);
+                if (sendTaille == 0){
+                    printf("Client %d déconnecté \n", i);
+                    pthread_exit(NULL);
+                }
+                if (sendTaille == -1){
+                    perror("Taille non envoyé\n");
+                    exit(1);
+                }
+                printf("Taille envoyée\n");
 
-        // Envoie Message
-        int sendMessage = send(tabClient[1], message1, tailleBufferReception, 0);
-        if (sendMessage == 0){
-            printf("Client 2 déconnecté\n");
-            pthread_exit(NULL);
+                // Envoie Message
+                int sendMessage = send(tabClient[i], message1, tailleBufferReception, 0);
+                if (sendMessage == 0){
+                    printf("Client %d déconnecté \n", i);
+                    pthread_exit(NULL);
+                }
+                if (sendMessage == -1){
+                    perror("message non envoyé\n");
+                    exit(1);
+                }
+                printf("Message envoyé\n");
+            }
+            i+=1;
         }
-        if (sendMessage == -1){
-            perror("message non envoyé\n");
-            exit(1);
-        }
-        printf("Message envoyé\n");
-
     }
 
 }
 
-
-
-void* client2_vers_client1(){
-
-    while (1) {
-        // Reception message
-        int recvTaille = recv(tabClient[1], &tailleBufferReception, sizeof(int), 0);
-        if (recvTaille == 0){
-            printf("Client 2 déconnecté\n");
-            pthread_exit(NULL);
-        }
-        if (recvTaille == -1){
-            perror("Taille non envoyé\n");
-            exit(1);
-        }
-        printf("la taille %d\n", tailleBufferReception);
-        
-        char* message2 = malloc(tailleBufferReception*sizeof(char));
-        int recvMessage = recv(tabClient[1], message2, tailleBufferReception, 0);
-        if (recvMessage == 0){
-            printf("Client 2 déconnecté\n");
-            pthread_exit(NULL);
-        }
-        if (recvMessage == -1){
-            perror("Réponse non reçue");
-            exit(1);
-        }
-        printf("Réponse reçue : %s\n", message2);
-
-        // Envoi au client 1 
-        int sendTaille = send(tabClient[0], &tailleBufferReception, sizeof(int), 0);
-        if (sendTaille == 0){
-            printf("Client 1 déconnecté\n");
-            pthread_exit(NULL);
-        }
-        if (sendTaille == -1){
-            perror("Taille non envoyé\n");
-            exit(1);
-        }
-        printf("Taille envoyée\n");
-
-        // Envoie Message
-        int sendMessage = send(tabClient[0], message2, tailleBufferReception, 0);
-        if (sendMessage == 0){
-            printf("Client 1 déconnecté\n");
-            pthread_exit(NULL);
-        }
-        if (sendMessage == -1){
-            perror("message non envoyé\n");
-            exit(1);
-        }
-        printf("Message envoyé\n");
-
-        free(message2);          
+int verfifieDSC(){
+    for (int i = 0; i < lenghTabClient; i++ ){
+        printf("Je suis le client : %d à l'index : %d \n", tabClient[i], i);
+        if (tabClient[i] == -1) return -1;
     }
-
+    return 0;
 }
 
 
 int main(int argc, char *argv[])
 {
 
-    if (argc != 2)
+    if (argc != 3)
     {
-        perror("./serveur port");
+        perror("./serveur port nbcli");
         exit(1);
     }
 
     printf("Début programme\n");
-
-    
 
     int dS = socket(PF_INET, SOCK_STREAM, 0);
     if (dS == -1)
@@ -170,50 +126,48 @@ int main(int argc, char *argv[])
     printf("Mode écoute\n");
 
 
-    pthread_t thread[2];
+    int nbcli = argv[2];
+    pthread_t* thread = (pthread_t*) malloc(nbcli*sizeof(int));
+    tabClient = (int*) malloc(nbcli*sizeof(int));
+    
+    lenghTabClient = sizeof tabClient / sizeof *tabClient;
+
+    printf("RUU %d \n", lenghTabClient);
     
     // Le code:
 
     while(1){
 
-        // Premier Client:
-        struct sockaddr_in aC;
-        socklen_t lg1 = sizeof(struct sockaddr_in);
-        int dSC1 = accept(dS, (struct sockaddr *)&aC, &lg1);
+        int i = 0;
+        while ( i < lenghTabClient){
 
-        if (dSC1 == -1)
-        {
-            perror("Client 1 non connecté)");
-            exit(1);
+            // Clients :
+            struct sockaddr_in aC;
+            socklen_t lg = sizeof(struct sockaddr_in);
+            int dSC = accept(dS, (struct sockaddr *)&aC, &lg);
+            if (dSC == -1)
+            {
+                printf("Client %d non connecté \n", i);
+                exit(1);
+            }
+            printf("Client %d Connecté \n", i);
+
+            tabClient[i] = dSC;
+            printf("a\n");
+            printf("WOW %d \n", tabClient[i]);
+
+            i += 1 ;
         }
-        printf("Client 1 Connecté\n");
 
+        if( verfifieDSC() == 0 ){
 
-        // Deuxième Client:
-        struct sockaddr_in aC2;
-        socklen_t lg2 = sizeof(struct sockaddr_in);
-        int dSC2 = accept(dS, (struct sockaddr *)&aC2, &lg2);
-        if (dSC2 == -1)
-        {
-            perror("Client 2 non connecté)");
-            exit(1);
-        }
-        printf("Client 2 Connecté\n");
+            for ( int index = 0; index < lenghTabClient; index ++ ){
+                pthread_create(&thread[index], NULL, communication, (void*) tabClient[index]); // sendTo // receiveFrom
+                pthread_join(thread[index], NULL);
+            }
 
-        tabClient[0] = dSC1;a
-        tabClient[1] = dSC2;
-
-
-        if( dSC1 != NULL && dSC2 != NULL){
-
-            pthread_create (&thread[0], NULL, client1_vers_client2, NULL); // sendTo // receiveFrom
-            pthread_create (&thread[1], NULL, client2_vers_client1, NULL); // sendTo // receiveFrom
-
-            pthread_join(thread[0], NULL);
-            pthread_join(thread[1], NULL);
-
+            /* créer une structure args */
         }    
-        
     }
 
     shutdown(dS, 2);
