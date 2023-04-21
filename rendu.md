@@ -26,41 +26,43 @@ Nous nous sommes organisés de la manière suivante :
 
 ## 5. Comment compiler et exécuter le code.
 
-Le code se compile de la manière suivante :
+Grâce à un Makefile, le code se compilera et s'executera en fonction des paramètres utilisés de la manière suivante :
 
 ```bash
-gcc -o ./out/[votre_version]/serveur ./sprint1/[votre_version]/serveur.c
-gcc -o ./out/[votre_version]/client ./sprint1/[votre_version]/client.c
+make serveur VERSION= PORT=
+make client VERSION= ADRESSEIP= PORT=
 ```
 
 ### Sujet 1 :
 
 #### V0 :
-Ensuite, lancez d'abord le serveur :
+Lancez d'abord le serveur :
 ```bash
-./out/v0/serveur le_port_souhaité
+make serveur VERSION=v0 PORT=3000
 ```
 Puis lancez les deux clients sur des ternimaux différents :
 ```bash
-./out/v0/client adresse_ip_du_serveur le_port 0
-./out/v0/client adresse_ip_du_serveur le_port 1
+make client VERSION=v0 ADRESSEIP=127.0.0.1 PORT=3000 ORDRE=0
+make client VERSION=v0 ADRESSEIP=127.0.0.1 PORT=3000 ORDRE=1
 ```
 Le client 0 envera d'abord son message puis recevra le message du client 1.  
-Le client 1 recevra le message du client 0 et envera le sien.
+Le client 1 recevra le message du client 0 et envera le sien.  
+Leur communication se terminera uniquement si l'un des deux envoie "fin". 
 
 #### V1 :
-Ensuite, lancez d'abord le serveur :
+Lancez d'abord le serveur :
 ```bash
-./out/v1/serveur le_port_souhaité
+make serveur VERSION=v1 PORT=3000
 ```
-Puis lancez les deux clients sur des ternimaux différents :
+Puis lancez les deux clients sur des ternimaux différents avec sur chacun des terminaux :
 ```bash
-./out/v1/client adresse_ip_du_serveur le_port
-./out/v1/client adresse_ip_du_serveur le_port
+make client VERSION=v1 ADRESSEIP=127.0.0.1 PORT=3000
 ```
 Le serveur ne se fermera pas et attendera de nouvelle connection.  
-Les clients pourront échanger des messages. Leur communication se terminera uniquement si l'un des deux envoie "fin". 
+Les clients pourront échanger des messages sans contrainte d'ordre.  
+Leur communication se terminera uniquement si l'un des deux envoie "fin". 
 
+---
 
-Co-authored-by: HarumiaStar <HarumiaStar@users.noreply.github.com>
+Co-authored-by: HarumiaStar <HarumiaStar@users.noreply.github.com>  
 Co-authored-by: charleneMrcp <charleneMrcp@users.noreply.github.com> 

@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
             printf(" Entrez votre message: \n");
             
             fgets(message, tailleBuffer, stdin); // on place le message dans le buffer
-            if (message[strlen(message)-1] = '\n') 
+            if (message[strlen(message)-1] == '\n') 
                 message[strlen(message)-1] = '\0';
             tailleBuffer = strlen(message) + 1;
             EnvoiTailleMessage(&tailleBuffer, dS);
@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
 
             printf(" Entrez votre message: \n");
             fgets(message, tailleBuffer, stdin); // on place le message dans le buffer
-            if (message[strlen(message)-1] = '\n') 
+            if (message[strlen(message)-1] == '\n') 
                 message[strlen(message)-1] = '\0';
             tailleBuffer = strlen(message) + 1;
             EnvoiTailleMessage(&tailleBuffer, dS);

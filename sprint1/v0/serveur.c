@@ -81,9 +81,7 @@ int main(int argc, char *argv[])
 
 
         //Nos variables:
-        int tailleBuffer = 200;
         int tailleBufferReception;
-        char *message;
         
         tabClient[0] = dSC1;
         tabClient[1] = dSC2;
@@ -101,8 +99,8 @@ int main(int argc, char *argv[])
             if (recv(tabClient[indexWriter], &tailleBufferReception, sizeof(int), 0) == -1)
             {
                 perror("Taille non envoyé\n");
-                dSC1 = NULL;
-                dSC2 = NULL;
+                dSC1 = -1;
+                dSC2 = -1;
                 break;
             }
             printf("la taille %d\n", tailleBufferReception);
@@ -113,8 +111,8 @@ int main(int argc, char *argv[])
             if (recv(tabClient[indexWriter], message1, tailleBufferReception, 0) == -1)
             {
                 perror("Réponse non reçue");
-                dSC1 = NULL;
-                dSC2 = NULL;
+                dSC1 = -1;
+                dSC2 = -1;
                 break;
             }
             printf("Réponse reçue : %s\n", message1);
@@ -124,8 +122,8 @@ int main(int argc, char *argv[])
             if (send(tabClient[indexSending], &tailleBufferReception, sizeof(int), 0) == -1)
             {
                 perror("Taille non envoyé\n");
-                dSC1 = NULL;
-                dSC2 = NULL;
+                dSC1 = -1;
+                dSC2 = -1;
                 break;
             }
             printf("Taille envoyée\n");
@@ -134,16 +132,16 @@ int main(int argc, char *argv[])
             if (send(tabClient[indexSending], message1, tailleBufferReception, 0) == -1)
             {
                 perror("message non envoyé\n");
-                dSC1 = NULL;
-                dSC2 = NULL;
+                dSC1 = -1;
+                dSC2 = -1;
                 break;
             }
             printf("Message envoyé\n");
 
 
             if (strcmp(message1, "fin") == 0){
-                dSC1 = NULL;
-                dSC2 = NULL;
+                dSC1 = -1;
+                dSC2 = -1;
                 printf("Clients déconnectés\n");
                 break;
             }
@@ -161,8 +159,8 @@ int main(int argc, char *argv[])
             if (recv(tabClient[indexSending], &tailleBufferReception, sizeof(int), 0) == -1)
             {
                 perror("Taille non envoyé\n");
-                dSC1 = NULL;
-                dSC2 = NULL;
+                dSC1 = -1;
+                dSC2 = -1;
                 break;
             }
             printf("la taille %d\n", tailleBufferReception);
@@ -173,8 +171,8 @@ int main(int argc, char *argv[])
             if (recv(tabClient[indexSending], message2, tailleBufferReception, 0) == -1)
             {
                 perror("Réponse non reçue");
-                dSC1 = NULL;
-                dSC2 = NULL;
+                dSC1 = -1;
+                dSC2 = -1;
                 break;
             }
             printf("Réponse reçue : %s\n", message2);
@@ -184,8 +182,8 @@ int main(int argc, char *argv[])
             if (send(tabClient[indexWriter], &tailleBufferReception, sizeof(int), 0) == -1)
             {
                 perror("Taille non envoyé\n");
-                dSC1 = NULL;
-                dSC2 = NULL;
+                dSC1 = -1;
+                dSC2 = -1;
                 break;
             }
             printf("Taille envoyée\n");
@@ -194,15 +192,15 @@ int main(int argc, char *argv[])
             if (send(tabClient[indexWriter], message2, tailleBufferReception, 0) == -1)
             {
                 perror("message non envoyé\n");
-                dSC1 = NULL;
-                dSC2 = NULL;
+                dSC1 = -1;
+                dSC2 = -1;
                 break;
             }
             printf("Message envoyé\n");
 
             if (strcmp(message2, "fin") == 0){
-                dSC1 = NULL;
-                dSC2 = NULL;
+                dSC1 = -1;
+                dSC2 = -1;
                 printf("Clients déconnectés\n");
                 break;
             }

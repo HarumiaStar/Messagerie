@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #define tailleBufferMax  200
 char mess[tailleBufferMax]; // le bufffer
@@ -66,7 +67,7 @@ void* envoie(void * arg){
         printf(" Entrez votre message: \n");
             
         fgets(mess, tailleBufferMax, stdin); // on place le message dans le buffer
-        if (mess[strlen(mess)-1] = '\n') 
+        if (mess[strlen(mess)-1] == '\n') 
             mess[strlen(mess)-1] = '\0';
         int tailleBuffer = strlen(mess) + 1;
 
@@ -74,7 +75,7 @@ void* envoie(void * arg){
         EnvoiMessage(tailleBuffer, mess, dS);
 
         if (strcmp(mess,"fin") == 0){
-            printf("La fin Reception: ");
+            printf("La fin Reception: \n");
             exit(0);
         }
     }
@@ -87,7 +88,7 @@ void* reception(void * arg){
         char* mess2 = ReceptionMessage(tailleBufferReception, dS);
 
         if (strcmp(mess2,"fin") == 0){
-            printf("La fin Reception: ");
+            printf("La fin Reception: \n");
             exit(0);
         }
     }
@@ -117,7 +118,7 @@ int main(int argc, char *argv[])
     inet_pton(AF_INET, argv[1], &(aS.sin_addr));
     aS.sin_port = htons(atoi(argv[2]));
     socklen_t lgA = sizeof(struct sockaddr_in);
-    if (connect(dS, (struct sockaddr *)&aS, lgA))
+    if (connect(dS, (struct sockaddr *)&aS, lgA) == -1)
     {
         perror("Socket non connectée");
         exit(1);
@@ -125,16 +126,14 @@ int main(int argc, char *argv[])
     printf("Socket Connecté\n");
 
     // Variables:
-
     pthread_t threadEnvoyeur;
     pthread_t threadRecepteur;
 
-    pthread_create(&threadEnvoyeur, NULL, envoie, (void *)dS);
-    pthread_create(&threadRecepteur, NULL, reception, (void *)dS);
+    pthread_create(&threadEnvoyeur, NULL, envoie, (void*) dS);
+    pthread_create(&threadRecepteur, NULL, reception, (void*) dS);
 
     pthread_join(threadRecepteur, NULL);
     pthread_join(threadEnvoyeur, NULL);
-
 
     shutdown(dS, 2);
     printf("Fin du programme\n");

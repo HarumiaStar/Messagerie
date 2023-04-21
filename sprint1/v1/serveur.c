@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
         tabClient[1] = dSC2;
 
 
-        if( dSC1 != NULL && dSC2 != NULL){
+        if( dSC1 != -1 && dSC2 != -1){
 
             pthread_create (&thread[0], NULL, client1_vers_client2, NULL); // sendTo // receiveFrom
             pthread_create (&thread[1], NULL, client2_vers_client1, NULL); // sendTo // receiveFrom
