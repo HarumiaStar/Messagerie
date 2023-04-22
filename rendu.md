@@ -9,6 +9,35 @@
 
 ## 2. L’architecture de l’application.
 
+Voici l'architecture de notre application.   
+Le fichier **Makefile** est constistué des descriptions des relations entre les fichiers afin de compiler et d'executer les programmes.  
+Le dossier **out** ressence tous les fichiers compilés celon leur version.  
+Le dossier **sprint1** ressence tous les programmes c celon leur version.
+```bash
+.
+|-- Makefile
+|-- out
+|   |-- v0
+|   |   |-- client
+|   |   `-- serveur
+|   |-- v1
+|   |   |-- client
+|   |   `-- serveur
+|   `-- v2
+|       |-- client
+|       `-- serveur
+`-- sprint1
+    |-- v0
+    |   |-- client.c
+    |   `-- serveur.c
+    |-- v1
+    |   |-- client.c
+    |   `-- serveur.c
+    `-- v2
+        |-- client.c
+        `-- serveur.c
+```
+
 ---
 
 ## 3. Les difficultés rencontrées, les choix faits pour les surmonter, et les problèmes qui persistent.
@@ -19,9 +48,15 @@
 
 Nous nous sommes organisés de la manière suivante :
 
-- v0 : Travail collaboratif, en simultané.
-- v1 : Compréhension des threads puis conception du code 
+Pour les diagrammes UML :
+- v0 : 
+- v1 : 
 - v2 : 
+
+Pour le code :
+- v0 : Travail collaboratif, en simultané.
+- v1 : Travail collaboratif, en simultané puis fin par Suzanne
+- v2 : Suzanne
 
 ---
 
