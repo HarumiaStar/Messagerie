@@ -21,6 +21,7 @@ Nous nous sommes organisés de la manière suivante :
 
 - v0 : Travail collaboratif, en simultané.
 - v1 : Compréhension des threads puis conception du code 
+- v2 : 
 
 ---
 
@@ -45,9 +46,9 @@ Puis lancez les deux clients sur des ternimaux différents :
 make client VERSION=v0 ADRESSEIP=127.0.0.1 PORT=3000 ORDRE=0
 make client VERSION=v0 ADRESSEIP=127.0.0.1 PORT=3000 ORDRE=1
 ```
-Le client 0 envera d'abord son message puis recevra le message du client 1.  
+>Le client 0 envera d'abord son message puis recevra le message du client 1.  
 Le client 1 recevra le message du client 0 et envera le sien.  
-Leur communication se terminera uniquement si l'un des deux envoie "fin". 
+Leur communication se terminera si l'un des deux envoie "fin". 
 
 #### V1 :
 Lancez d'abord le serveur :
@@ -58,9 +59,9 @@ Puis lancez les deux clients sur des ternimaux différents avec sur chacun des t
 ```bash
 make client VERSION=v1 ADRESSEIP=127.0.0.1 PORT=3000
 ```
-Le serveur ne se fermera pas et attendera de nouvelle connection.  
+>Le serveur ne se fermera pas et attendera de nouvelle connection.  
 Les clients pourront échanger des messages sans contrainte d'ordre.  
-Leur communication se terminera uniquement si l'un des deux envoie "fin". 
+Leur communication se terminera si l'un des deux envoie "fin". 
 
 #### V2 :
 Lancez d'abord le serveur :
@@ -71,9 +72,9 @@ Puis lancez les n clients sur des ternimaux différents avec sur chacun des term
 ```bash
 make client VERSION=v2 ADRESSEIP=127.0.0.1 PORT=3000
 ```
-Le serveur ne se fermera pas et attendera de nouvelle connection.  
+> Le serveur attendra les connections des n clients avant de relier les messages.  
 Les clients pourront échanger des messages sans contrainte d'ordre.  
-Leur communication se terminera uniquement si l'un des deux envoie "fin". 
+La communication se terminera si l'un des deux envoie "fin". 
 
 ---
 

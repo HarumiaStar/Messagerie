@@ -71,8 +71,8 @@ void* envoie(void * arg){
             mess[strlen(mess)-1] = '\0';
         int tailleBuffer = strlen(mess) + 1;
 
-        //EnvoiTailleMessage(&tailleBuffer, dS);
-        //EnvoiMessage(tailleBuffer, mess, dS);
+        EnvoiTailleMessage(&tailleBuffer, dS);
+        EnvoiMessage(tailleBuffer, mess, dS);
 
         if (strcmp(mess,"fin") == 0){
             printf("La fin Reception: \n");
@@ -124,6 +124,13 @@ int main(int argc, char *argv[])
         exit(1);
     }
     printf("Socket Connecté\n");
+
+    char ack[4];
+    recv(dS, ack, sizeof(ack), 0);
+    if (strcmp(ack, "ACK") != 0) {
+        perror("Erreur lors de la synchronisation avec le serveur");
+        exit(1);
+    }
 
     // Variables:
     pthread_t threadEnvoyeur;

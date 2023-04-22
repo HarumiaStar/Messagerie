@@ -15,7 +15,7 @@ int lenghTabClient;
 
 void* communication(void* dSC){
 
-    long index = (long) dSC;
+    long index = (long)(intptr_t) dSC;
 
     while (1){
 
@@ -126,48 +126,41 @@ int main(int argc, char *argv[])
     printf("Mode écoute\n");
 
 
-    int nbcli = argv[2];
+    int nbcli = atoi(argv[2]);
     pthread_t* thread = (pthread_t*) malloc(nbcli*sizeof(int));
-    tabClient = (int*) malloc(nbcli*sizeof(int));
-    
-    lenghTabClient = sizeof tabClient / sizeof *tabClient;
+    free(tabClient);
+    tabClient = malloc(nbcli * sizeof(int));
 
-    printf("RUU %d \n", lenghTabClient);
+    lenghTabClient = nbcli;
     
     // Le code:
 
-    while(1){
-
-        int i = 0;
-        while ( i < lenghTabClient){
-
-            // Clients :
-            struct sockaddr_in aC;
-            socklen_t lg = sizeof(struct sockaddr_in);
-            int dSC = accept(dS, (struct sockaddr *)&aC, &lg);
-            if (dSC == -1)
-            {
-                printf("Client %d non connecté \n", i);
-                exit(1);
-            }
-            printf("Client %d Connecté \n", i);
-
-            tabClient[i] = dSC;
-            printf("a\n");
-            printf("WOW %d \n", tabClient[i]);
-
-            i += 1 ;
+    for (int i = 0; i < nbcli; i++) {
+        // Clients :
+        struct sockaddr_in aC;
+        socklen_t lg = sizeof(struct sockaddr_in);
+        int dSC = accept(dS, (struct sockaddr *)&aC, &lg);
+        if (dSC == -1)
+        {
+            printf("Client %d non connecté \n", i);
+            i -= 1;
+            continue;
         }
+        printf("Client %d Connecté \n", i);
 
-        if( verfifieDSC() == 0 ){
+        char ack[] = "ACK";
+        send(dSC, ack, strlen(ack) + 1, 0);
 
-            for ( int index = 0; index < lenghTabClient; index ++ ){
-                pthread_create(&thread[index], NULL, communication, (void*) tabClient[index]); // sendTo // receiveFrom
-                pthread_join(thread[index], NULL);
-            }
+        tabClient[i] = dSC;
+    }
 
-            /* créer une structure args */
-        }    
+    for (int i = 0; i < lenghTabClient; i++ ){
+        pthread_create(&thread[i], NULL, communication, (void *)(intptr_t)i); // sendTo // receiveFrom
+    }
+        
+
+    for (int i = 0; i < lenghTabClient; i++ ){
+        pthread_join(thread[i], NULL);
     }
 
     shutdown(dS, 2);
