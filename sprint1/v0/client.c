@@ -93,16 +93,6 @@ int main(int argc, char *argv[])
 
     int tailleBuffer = 200;
     char message[tailleBuffer]; // le bufffer
-    //* Fourre tout
-    // strcpy(m,"TEST");
-
-    /*char * w = "TEST";
-    int nb = strlen(w);
-    for (int i = 0; i < nb+1;i++){
-      m[i] = w[i];
-    }*/
-
-
     
 
     if (client == 0){
@@ -166,32 +156,7 @@ int main(int argc, char *argv[])
 
         } while (1);
     }
-    /*
-      // Envoi du premier message :
-      int tailleBuffer2 = 200 ; // reinitialisation de la taille d'un buffer (jsp si nécessaire)
-      char n[tailleBuffer2]; // le bufffer
-      // On get la taille du message en demandant le message à envoyer à l'utilisateur:
-      printf(" Entrez votre message: \n");
-      fgets(n,tailleBuffer2,stdin); //on place le message dans le buffer
-      tailleBuffer2 = strlen(n)+1; // on calcul la taille du message
-      // on envoi la taille du message au serveur
-      if(send(dS, &tailleBuffer2, sizeof(int) , 0) == -1){
-        perror("message non envoyé");
-        exit(1);
-      }
-      // le serveur sait maintenant la taille du message qu'il va récupérer, on lui envoi donc le message
-      if(send(dS, n, tailleBuffer2 , 0) == -1){
-        perror("message non envoyé");
-        exit(1);
-      }
-      printf("Message 2 Envoyé \n");
-      int r;
-      if (recv(dS, &r, sizeof(int), 0) == -1){
-        perror("Réponse non reçue");
-        exit(1);
-      }
-      printf("Réponse reçue : %d\n", r) ;
-      */
+    
 
     shutdown(dS, 2);
     printf("Fin du programme\n");
