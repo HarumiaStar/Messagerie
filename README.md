@@ -28,3 +28,33 @@ Mise en place d’un serveur qui puisse gérer n clients, pour cela mettre en pl
 **Côté client** : rien ne change par rapport à la première version du client multithreadé. 
 
 La déconnexion sur le client/serveur multithreadé n’est pas obligatoire pour ce sprint, elle le sera pour le prochain
+
+
+### Sprint 2 : Semaines du 24 avril au 7 mai. 3 séances encadrées :
+
+### Objectifs :
+
+- Fin du sprint 1 : Mise en place d’un serveur qui puisse gérer n clients, pour cela mettre en place un tableau partagé pour stocker leurs identifiants sockets, par défaut, les messages arrivant depuis un client sont relayés à tous les autres présents. ( rappel : les descripteurs clients peuvent être récupérés via la fonction accept )
+Côté serveur : 1  thread par client pour écouter les messages qui proviennent du client et les diffuser vers tous les autres clients. 
+Côté client : rien ne change par rapport à la première version du client multithreadé. 
+
+- Définir un protocole pour les commandes particulières envoyées en messages depuis le client( exemple @... sur discord )
+
+- Création d’une fonction/commande message privé, un client peut choisir d’envoyer à un autre client en particulier, elle se base sur le protocole de message (ex : “/mp user msg” : 
+    - première version avec utilisation du numéro de client ou un identifiant 
+    - ajout d’un pseudo lors de la connexion d’un client et utilisation du pseudo pour les échanges privé
+    - Gestion d’erreur coté serveur sur l’existence du destinataire
+    - Gestion pseudo déjà existant
+
+- Création d’une fonction/commande de déconnexion, une commande permet au client de se déconnecter, le serveur, enlève le client de la liste, clôt alors la connexion (shutdown ou close) puis finit le thread associé, cette commande n’agit pas sur les autres clients.
+
+- Amélioration du code et gestion des nouveaux clients.
+    - Si pas déjà fait, ajout d’un mutex pour le tableau des clients. 
+    - Ajout d’un sémaphore indiquant le nombre de place restante sur le serveur pour faciliter le remplacement de client et assurer un nombre de client maximum (  Utiliser la bibliothèque sys/sem.h : exemple ici ! )
+    - Gestion des signaux (Ctrl+C) client et serveur
+    - Ajout d’une variable partagée pour une fermeture propre des threads lors de la déconnexion des clients et la connexion de nouveau clients
+    - Synchronisation des threads des clients terminés
+
+**Attention** : La bibliothèque de sémaphore n’est pas la même sous MacOs, rappel la cible de l’application est un système Linux, pour corriger lien
+
+- Ajout d’une commande permettant de lister les fonctionnalités disponibles pour le client, stockées dans un fichier texte ( manuel ).
