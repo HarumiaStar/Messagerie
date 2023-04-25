@@ -7,15 +7,18 @@
 
 #include <pthread.h>
 
-
-int* tabClient;
-int tailleBufferReception;
-int lengthTabClient;
 typedef struct dsc dSClient;
+
 struct dSClient {
     int* dSC;
     char* pseudo;
 };
+
+int* tabClient;
+dSClient* tabClientStruct;
+int tailleBufferReception;
+int lengthTabClient;
+
 
 int verif_commande(char* message) {
     char cmp = '@';
@@ -30,10 +33,14 @@ int verif_commande(char* message) {
     }
 }
 
+// Regarde à qui on envoie le message privé
 int messagePrivee(char* message){
-    if (verif_commande(message) == 1){
-        printf("MP : %d \n",message[1]);
-        return message[1]-48;
+    char* message1 = (char*) malloc(strlen(message) * sizeof(char));
+    strcpy(message1, message); // on copie le message pour pouvoir le modifier
+    if (verif_commande(message1) == 1){
+        char* cmd = strtok(message1, " "); // on isole @index
+        cmd = strtok(cmd, "@"); // on récup l'index
+        return atoi(cmd); //on rend l'index
     }
     return -1;
 }

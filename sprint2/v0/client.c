@@ -5,8 +5,23 @@
 #include <string.h>
 #include <pthread.h>
 
+
 #define tailleBufferMax  200
 char mess[tailleBufferMax]; // le bufffer
+typedef struct dSClient infos;
+
+struct dSClient {
+    int dSC;
+    char* pseudo;
+};
+
+/*créer la struct*/
+infos* creer_dSCClient(){
+    infos* dSCli = (infos*) malloc(sizeof(int)*sizeof(char));
+    (*dSCli).dSC = -1;
+    (*dSCli).pseudo = (char*) malloc(tailleBufferMax * sizeof(char));
+    return dSCli;
+} 
 
 /////////////////////////////////////////////////////////////////////////
     void EnvoiTailleMessage(int *adressetailleBuffer, int recepteur)
@@ -60,13 +75,21 @@ char mess[tailleBufferMax]; // le bufffer
     }
 
 
-void* envoie(void * arg){
-    int dS = (long)arg;
+void* envoie(void * args){
+    infos* arg = (infos*) args;
+    int dS = (long)arg->dSC;
 
     while (1){
         printf(" Entrez votre message: \n");
             
         fgets(mess, tailleBufferMax, stdin); // on place le message dans le buffer
+        // A finir TODO
+        char* texte = 
+        strcat(" envoyé par : ",arg->pseudo);
+
+        char* name = " (envoyé par : " + arg->pseudo + ")";
+        strcat(name, mess);
+        //// on veut envoyer les message + pseudo
         if (mess[strlen(mess)-1] == '\n') 
             mess[strlen(mess)-1] = '\0';
         int tailleBuffer = strlen(mess) + 1;
@@ -82,7 +105,7 @@ void* envoie(void * arg){
 }
 
 void* reception(void * arg){
-    int dS = (long)arg;
+    int dS = (infos*)arg->dSC;
     while (1){
         int tailleBufferReception = ReceptionTailleBuffer(dS);
         char* mess2 = ReceptionMessage(tailleBufferReception, dS);
@@ -125,6 +148,8 @@ int main(int argc, char *argv[])
     }
     printf("Socket Connecté\n");
 
+
+
     char ack[4];
     recv(dS, ack, sizeof(ack), 0);
     if (strcmp(ack, "ACK") != 0) {
@@ -132,16 +157,23 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+
+    infos* carte = creer_dSCClient();
+    carte->dSC = dS;
+    printf("Entrez votre pseudo:\n");
+    fgets(carte->pseudo, tailleBufferMax, stdin);
+    
+    
     // Variables:
     pthread_t threadEnvoyeur;
     pthread_t threadRecepteur;
 
-    pthread_create(&threadEnvoyeur, NULL, envoie, (void*) dS);
-    pthread_create(&threadRecepteur, NULL, reception, (void*) dS);
+    pthread_create(&threadEnvoyeur, NULL, envoie, (void*) carte);
+    pthread_create(&threadRecepteur, NULL, reception, (void*) carte);
 
     pthread_join(threadRecepteur, NULL);
     pthread_join(threadEnvoyeur, NULL);
 
-    shutdown(dS, 2);
+    shutdown(carte->dSC, 2);
     printf("Fin du programme\n");
 }
