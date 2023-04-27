@@ -23,6 +23,33 @@ infos* creer_dSCClient(){
     return dSCli;
 } 
 
+int verif_commande(char* message) {
+    char cmp = '@';
+    printf("message[0] = %c \n", message[0]);
+    if (message[0] == cmp) {
+        printf("Ceci est une commande\n");
+        return 1;
+    }
+    else {
+        printf("C'est un message\n");
+        return 0;
+    }
+}
+
+int commande(char* mess){
+    if (verif_commande(mess) == 1){
+        char* message = (char*) malloc(strlen(mess) * sizeof(char));
+        strcpy(message, mess); // on copie le message pour pouvoir le modifier
+        char* cmd = strtok(message, " "); // on isole @(truc)
+        cmd = strtok(cmd, "@"); // on récup l'(truc)
+        printf("cmd %s \n", cmd);
+
+        printf(" strcmp : %d \n", strncmp(cmd,"fin", 3));
+        if (strncmp(cmd,"fin", 3) == 0) return 0; //on renvoie 0 si truc == fin
+    }
+    return -1;
+}
+
 /////////////////////////////////////////////////////////////////////////
     void EnvoiTailleMessage(int *adressetailleBuffer, int recepteur)
     {
@@ -84,38 +111,51 @@ void* envoie(void * args){
             
         fgets(mess, tailleBufferMax, stdin); // on place le message dans le buffer
         // A finir TODO
-        char* texte = 
-        strcat(" envoyé par : ",arg->pseudo);
+        char* texte = malloc(tailleBufferMax*sizeof(char*));
+        char* name = malloc(tailleBufferMax*sizeof(char*));
+        strcpy(name, " - envoyé par : "); // texte de rajout après message
+        char* pseu = malloc(tailleBufferMax*sizeof(char*));
+        strcpy(pseu, arg->pseudo);
+        
+        strcpy( texte, mess );
+        strcat(name, pseu);
+        strcat(texte, name );
 
-        char* name = " (envoyé par : " + arg->pseudo + ")";
-        strcat(name, mess);
         //// on veut envoyer les message + pseudo
+        if (texte[strlen(texte)-1] == '\n') 
+            texte[strlen(texte)-1] = '\0';
+        int tailleBuffer = strlen(texte) + 1;
+
         if (mess[strlen(mess)-1] == '\n') 
             mess[strlen(mess)-1] = '\0';
-        int tailleBuffer = strlen(mess) + 1;
+
+        printf("mess %s", mess);
 
         EnvoiTailleMessage(&tailleBuffer, dS);
-        EnvoiMessage(tailleBuffer, mess, dS);
+        EnvoiMessage(tailleBuffer, texte, dS);
 
-        if (strcmp(mess,"fin") == 0){
+        if (commande(mess) == 0){
             printf("La fin Reception: \n");
             exit(0);
         }
     }
 }
 
-void* reception(void * arg){
-    int dS = (infos*)arg->dSC;
+void* reception(void * args){
+    infos* arg = (infos*) args;
+    long dS = (long)arg->dSC;
     while (1){
         int tailleBufferReception = ReceptionTailleBuffer(dS);
         char* mess2 = ReceptionMessage(tailleBufferReception, dS);
 
-        if (strcmp(mess2,"fin") == 0){
+        if (commande(mess2) == 0){
             printf("La fin Reception: \n");
             exit(0);
         }
     }
 }
+
+
 
 int main(int argc, char *argv[])
 {

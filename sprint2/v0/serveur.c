@@ -34,15 +34,21 @@ int verif_commande(char* message) {
 }
 
 // Regarde à qui on envoie le message privé
-int messagePrivee(char* message){
-    char* message1 = (char*) malloc(strlen(message) * sizeof(char));
-    strcpy(message1, message); // on copie le message pour pouvoir le modifier
-    if (verif_commande(message1) == 1){
-        char* cmd = strtok(message1, " "); // on isole @index
-        cmd = strtok(cmd, "@"); // on récup l'index
-        return atoi(cmd); //on rend l'index
+int commande(char* mess){
+    if (verif_commande(mess) == 1){
+        char* message = (char*) malloc(strlen(mess) * sizeof(char));
+        strcpy(message, mess); // on copie le message pour pouvoir le modifier
+        char* cmd = strtok(message, " "); // on isole @(truc)
+        cmd = strtok(cmd, "@"); // on récup l'(truc)
+        printf("cmd %s \n", cmd);
+
+        printf(" strcmp : %d \n", strncmp(cmd,"fin", 3));
+        if (strncmp(cmd,"fin", 3) == 0) return -2; //on renvoie -2 si truc == fin
+        else {
+            return atoi(cmd); //on renvoie si truc => index
+        }
     }
-    return -1;
+    return -1; // pas une commande
 }
 
 
@@ -52,10 +58,10 @@ void* communication(void* dSC){
 
     while (1){
 
-        // Reception de la réponse client Writer:
+        // Reception de la réponse client Writer: 
         int recvTaille = recv(tabClient[index], &tailleBufferReception, sizeof(int), 0);
         if (recvTaille == 0){
-            printf("Client %d déconnecté\n", index);
+            printf("Client %ld déconnecté\n", index);
             pthread_exit(NULL);
         }
         if (recvTaille == -1){
@@ -69,7 +75,7 @@ void* communication(void* dSC){
         char* message1 = malloc(tailleBufferReception*sizeof(char));
         int recvMessage = recv(tabClient[index], message1, tailleBufferReception, 0);
         if(recvMessage == 0){
-            printf("Client %d déconnecté \n", index);
+            printf("Client %ld déconnecté \n", index);
             pthread_exit(NULL);
         }
         if(recvMessage == -1){
@@ -81,11 +87,12 @@ void* communication(void* dSC){
         long i = 0;
         while ( i < lengthTabClient){
             if (i != index){
-                if (messagePrivee(message1) == -1){
+                int cmd = commande(message1);
+                if (cmd == -1 || cmd == -2){
                     // Envoi au client
                     int sendTaille = send(tabClient[i], &tailleBufferReception, sizeof(int), 0);
                     if (sendTaille == 0){
-                        printf("Client %d déconnecté (sendTaille)\n", i);
+                        printf("Client %ld déconnecté (sendTaille)\n", i);
                         pthread_exit(NULL);
                     }
                     if (sendTaille == -1){
@@ -97,7 +104,7 @@ void* communication(void* dSC){
                     // Envoie Message
                     int sendMessage = send(tabClient[i], message1, tailleBufferReception, 0);
                     if (sendMessage == 0){
-                        printf("Client %d déconnecté (sendMessage)\n", i);
+                        printf("Client %ld déconnecté (sendMessage)\n", i);
                         pthread_exit(NULL);
                     }
                     if (sendMessage == -1){
@@ -106,12 +113,12 @@ void* communication(void* dSC){
                     }
                     printf("Message envoyé\n");
                 }
-                else if (messagePrivee(message1) == i){
+                else if (cmd == i){
                     printf("on entre\n");
                     // Envoi au client
                     int sendTaille = send(tabClient[i], &tailleBufferReception, sizeof(int), 0);
                     if (sendTaille == 0){
-                        printf("Client %d déconnecté (sendTaille)\n", i);
+                        printf("Client %ld déconnecté (sendTaille)\n", i);
                         pthread_exit(NULL);
                     }
                     if (sendTaille == -1){
@@ -123,7 +130,7 @@ void* communication(void* dSC){
                     // Envoie Message
                     int sendMessage = send(tabClient[i], message1, tailleBufferReception, 0);
                     if (sendMessage == 0){
-                        printf("Client %d déconnecté (sendMessage)\n", i);
+                        printf("Client %ld déconnecté (sendMessage)\n", i);
                         pthread_exit(NULL);
                     }
                     if (sendMessage == -1){
