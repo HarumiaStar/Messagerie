@@ -8,16 +8,15 @@
 
 #define tailleBufferMax  200
 char mess[tailleBufferMax]; // le bufffer
-typedef struct dSClient infos;
 
-struct dSClient {
+typedef struct {
     int dSC;
     char* pseudo;
-};
+} dSClient;
 
 /*créer la struct*/
-infos* creer_dSCClient(){
-    infos* dSCli = (infos*) malloc(sizeof(int)*sizeof(char));
+dSClient* creer_dSCClient(){
+    dSClient* dSCli = (dSClient*) malloc(sizeof(dSClient));
     (*dSCli).dSC = -1;
     (*dSCli).pseudo = (char*) malloc(tailleBufferMax * sizeof(char));
     return dSCli;
@@ -25,13 +24,10 @@ infos* creer_dSCClient(){
 
 int verif_commande(char* message) {
     char cmp = '@';
-    printf("message[0] = %c \n", message[0]);
     if (message[0] == cmp) {
-        printf("Ceci est une commande\n");
         return 1;
     }
     else {
-        printf("C'est un message\n");
         return 0;
     }
 }
@@ -42,9 +38,7 @@ int commande(char* mess){
         strcpy(message, mess); // on copie le message pour pouvoir le modifier
         char* cmd = strtok(message, " "); // on isole @(truc)
         cmd = strtok(cmd, "@"); // on récup l'(truc)
-        printf("cmd %s \n", cmd);
 
-        printf(" strcmp : %d \n", strncmp(cmd,"fin", 3));
         if (strncmp(cmd,"fin", 3) == 0) return 0; //on renvoie 0 si truc == fin
     }
     return -1;
@@ -103,14 +97,14 @@ int commande(char* mess){
 
 
 void* envoie(void * args){
-    infos* arg = (infos*) args;
+    dSClient* arg = (dSClient*) args;
     int dS = (long)arg->dSC;
 
     while (1){
         printf(" Entrez votre message: \n");
             
         fgets(mess, tailleBufferMax, stdin); // on place le message dans le buffer
-        // A finir TODO
+        
         char* texte = malloc(tailleBufferMax*sizeof(char*));
         char* name = malloc(tailleBufferMax*sizeof(char*));
         strcpy(name, " - envoyé par : "); // texte de rajout après message
@@ -129,8 +123,6 @@ void* envoie(void * args){
         if (mess[strlen(mess)-1] == '\n') 
             mess[strlen(mess)-1] = '\0';
 
-        printf("mess %s", mess);
-
         EnvoiTailleMessage(&tailleBuffer, dS);
         EnvoiMessage(tailleBuffer, texte, dS);
 
@@ -142,7 +134,7 @@ void* envoie(void * args){
 }
 
 void* reception(void * args){
-    infos* arg = (infos*) args;
+    dSClient* arg = (dSClient*) args;
     long dS = (long)arg->dSC;
     while (1){
         int tailleBufferReception = ReceptionTailleBuffer(dS);
@@ -198,10 +190,16 @@ int main(int argc, char *argv[])
     }
 
 
-    infos* carte = creer_dSCClient();
+    dSClient* carte = creer_dSCClient();
     carte->dSC = dS;
     printf("Entrez votre pseudo:\n");
     fgets(carte->pseudo, tailleBufferMax, stdin);
+
+    if (send(dS, carte->pseudo, sizeof(carte->pseudo), 0) == -1){
+        perror("pseudo non envoyé\n");
+        exit(1);
+    }
+    printf("pseudo envoyé\n");
     
     
     // Variables:
