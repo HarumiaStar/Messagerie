@@ -209,8 +209,23 @@ void* communication(void* arg){
                     }
                     break;
                 }
-                else if (cmd == -5){
-                    
+                else if (cmd == -5){ // On envoie le contenue du manuel.txt
+                    FILE *fichier = fopen("./manuel.txt", "r");
+                    if (fichier == NULL){
+                        perror("Erreur lors de l'ouverture du fichier");
+                        break;
+                    }
+                    char* manuel = malloc(4096*sizeof(char));
+                    char* ligne = malloc(4096*sizeof(char));
+                    while (fgets(ligne, 4096, fichier) != NULL){
+                        printf("%s", manuel);
+                        strcat(manuel, ligne);
+                    }
+                    int sended = send_message(tabClientStruct[index].dSC, manuel, strlen(manuel));
+                    if (sended == -1){
+                        printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[index].pseudo);
+                    }
+                    break;
                 }
                 else if (cmd == i){ // On envoie le message privé
                     int sended = send_message(tabClientStruct[i].dSC, message1, tailleBufferReception);
