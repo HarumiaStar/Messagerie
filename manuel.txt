@@ -1,0 +1,8 @@
+
+Liste des commandes :
+
+@fin : Clôt la connection 
+@list : Affiche la liste des clients connectés
+@(pseudo_client) (message) : envoie le message en privé à ce client
+(message) : Envoie le message à tous les clients
+@help : affiche cette liste de commande
