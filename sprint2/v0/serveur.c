@@ -371,7 +371,7 @@ int main(int argc, char *argv[])
             if (pseudo[strlen(pseudo)-1] == '\n') 
             pseudo[strlen(pseudo)-1] = '\0';
 
-            if (strncmp(pseudo, "@fin", 4) == 0 || strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo, tabClientStruct, nbcli) == 1){
+            if (strncmp(pseudo, "@fin", 4) == 0 ||strncmp(pseudo, "list", 4) == 0 ||  strncmp(pseudo, "help", 4) == 0 ||   strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo, tabClientStruct, nbcli) == 1){
                 char* messagePseudo = "Pseudo déjà utilisé ou pseudo invalide";
                 send_message(dSC, messagePseudo, strlen(messagePseudo));
 
