@@ -7,10 +7,13 @@
 
 #include <pthread.h>
 #include <semaphore.h>
+#include <signal.h>
+
+#define TAILLE_PSEUDO 32
 
 typedef struct {
     int dSC;
-    char pseudo[32];
+    char pseudo[TAILLE_PSEUDO];
 } dSClient;
 
 dSClient* tabClientStruct;
@@ -56,6 +59,21 @@ int send_message(int client_fd, const void *message, size_t message_size) {
     return 0;
 }
 
+// Gestionnaire de signaux
+void sig_handler(int sig) {
+	printf("\nSIGINT attrapé, on stop le programme %i\n", getpid());
+    for (int i = 0; i < lengthTabClient; ++i) {
+        if (tabClientStruct[i].dSC != -1) {
+            char* texte = "@fin Serveur";
+            send_message(tabClientStruct[i].dSC, texte, strlen(texte));
+            strncpy(tabClientStruct[i].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
+            tabClientStruct[i].dSC = -1;
+            close(tabClientStruct[i].dSC);
+        }
+    }
+    exit(0);
+}
+
 
 int verif_commande(char* message) {
     char cmp = '@';
@@ -79,11 +97,15 @@ int commande(char* mess){
         cmd = strtok(cmd, "@"); // on récup l'(truc)
         printf("cmd %s \n", cmd);
 
-        printf(" strcmp : %d \n", strncmp(cmd,"fin", 3));
+        printf(" strcmp fin : %d \n", strncmp(cmd,"fin", 3));
+        printf(" strcmp list : %d \n", strncmp(cmd,"list", 4));
+        printf(" strcmp help : %d \n", strncmp(cmd,"help", 4));
         if (strncmp(cmd,"fin", 3) == 0) return -2; //on renvoie -2 si truc == fin
+        else if (strncmp(cmd, "list", 4) == 0) return -4; //on renvoie -4 si truc == list
+        else if (strncmp(cmd, "help", 4) == 0) return -5; //on renvoie -4 si truc == help
         else {
             printf("Message privé ...\n");
-            char target_pseudo[32]; // Assurez-vous de définir une longueur maximale pour les pseudos
+            char target_pseudo[TAILLE_PSEUDO]; // Assurez-vous de définir une longueur maximale pour les pseudos
 
             if (sscanf(message, "@%s\n", target_pseudo) != 1) {
                 printf("Erreur de lecture du pseudo\n");
@@ -95,10 +117,10 @@ int commande(char* mess){
                 if (strcmp(tabClientStruct[i].pseudo, target_pseudo) == 0) {
                     target_index = i;
                     break;
-                }
+                }        
             }
             printf("Message privé à %s dont l'id est %d\n", target_pseudo, target_index);
-            return target_index; //on renvoie si truc => index
+            return target_index; //on renvoie si truc => index sinon renvoie -3 le pseudo n'existe pas
         }
     }
     return -1; // pas une commande
@@ -118,7 +140,7 @@ void* communication(void* arg){
        if (recvTaille == 0) {
             printf("Client %ld déconnecté (recvTaille =0) \n", index);
             tabClientStruct[index].dSC = -1;
-            strncpy(tabClientStruct[index].pseudo, "__DISCONNECTED__", sizeof(tabClientStruct[index].pseudo));
+            strncpy(tabClientStruct[index].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
             pthread_exit(NULL);
         }
         if (recvTaille == -1){
@@ -133,7 +155,7 @@ void* communication(void* arg){
         int recvMessage = recv(tabClientStruct[index].dSC, message1, tailleBufferReception, 0);
         if(recvMessage == 0){
             printf("Client %ld déconnecté (recvMessage = 0) \n", index);
-            strncpy(tabClientStruct[index].pseudo, "__DISCONNECTED__", sizeof(tabClientStruct[index].pseudo));
+            strncpy(tabClientStruct[index].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
             pthread_exit(NULL);
         }
         if(recvMessage == -1){
@@ -148,7 +170,7 @@ void* communication(void* arg){
             if (i != index){
                 int cmd = commande(message1);
                 if (cmd == -1){ // On envoie le message à tout le monde
-                    if (strncmp(tabClientStruct[i].pseudo, "__DISCONNECTED__", 15) != 0) {
+                    if (strncmp(tabClientStruct[i].pseudo, "__DÉCONNECTÉ__", 14) != 0) {
                         int sended = send_message(tabClientStruct[i].dSC, message1, tailleBufferReception);
                         if (sended == -1){
                             printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[i].pseudo);
@@ -169,8 +191,28 @@ void* communication(void* arg){
                         printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[i].pseudo);
                     }
                     break;
-
-                } else if (cmd == i){ // On envoie le message privé
+                }
+                else if (cmd == -4){ // On demande la liste des utilisateurs
+                    printf("\nListe des utilisateurs connectés :\n");
+                    char* message = malloc(4096*sizeof(char));
+                    strcat(message, "Liste des utilisateurs connectés :\n");
+                    for (int j = 0; j < lengthTabClient; ++j) {
+                        if (strncmp(tabClientStruct[j].pseudo, "__DÉCONNECTÉ__", 14) != 0) {
+                            printf("Client %d : %s\n", j ,tabClientStruct[j].pseudo);
+                            strcat(message, tabClientStruct[j].pseudo);
+                            strcat(message, "\n");
+                        }
+                    }
+                    int sended = send_message(tabClientStruct[index].dSC, message, strlen(message));
+                    if (sended == -1){
+                        printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[index].pseudo);
+                    }
+                    break;
+                }
+                else if (cmd == -5){
+                    
+                }
+                else if (cmd == i){ // On envoie le message privé
                     int sended = send_message(tabClientStruct[i].dSC, message1, tailleBufferReception);
                     if (sended == -1){
                         printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[i].pseudo);
@@ -180,7 +222,7 @@ void* communication(void* arg){
             i+=1;
         }
         if (sortie == 1) {
-            strncpy(tabClientStruct[index].pseudo, "__DISCONNECTED__", sizeof(tabClientStruct[index].pseudo));
+            strncpy(tabClientStruct[index].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
             break;
         }
     }
@@ -200,6 +242,10 @@ int pseudoDejaUtilise(char* pseudo, dSClient* tabClientStruct, int nbcli){
 
 int main(int argc, char *argv[])
 {
+    // Enregistrement du gestionnaire de signaux
+	if(signal(SIGINT, sig_handler) == SIG_ERR){
+		puts("Erreur à l'enregistrement du gestionnaire de signaux !");
+	}
 
     if (argc != 3)
     {
@@ -249,7 +295,7 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < nbcli; i++){
         tabClientStruct[i].dSC = -1;
-        strcpy(tabClientStruct[i].pseudo, "__DISCONNECTED__");
+        strcpy(tabClientStruct[i].pseudo, "__DÉCONNECTÉ__");
     }
     
     // Le code:
@@ -257,26 +303,26 @@ int main(int argc, char *argv[])
         int i = 0;
         while (i < nbcli) {
             // Recherche d'un emplacement vide dans le tableau tabClientStruct
-            int availableIndex = -1;
+            int indexDisponible = -1;
             for (int j = 0; j < nbcli; j++) {
                 printf("Client %d : %s\n", j, tabClientStruct[j].pseudo);
-                if (strncmp(tabClientStruct[j].pseudo, "__DISCONNECTED__", 15) == 0) {
-                    availableIndex = j;
+                if (strncmp(tabClientStruct[j].pseudo, "__DÉCONNECTÉ__", 14) == 0) {
+                    indexDisponible = j;
                     break;
                 }
             }
 
             // Si aucun emplacement vide n'est trouvé, utilisez l'indice suivant
-            if (availableIndex == -1) {
-                availableIndex = i;
+            if (indexDisponible == -1) {
+                indexDisponible = i;
             } else {
-                i = availableIndex;
+                i = indexDisponible;
             }
 
             // Ajoutez une variable booléenne pour vérifier si un emplacement disponible a été trouvé
-            int availableSlotFound = -1;
-            if (availableIndex == i) {
-                availableSlotFound = 1;
+            int placeDisponible = -1;
+            if (indexDisponible == i) {
+                placeDisponible = 1;
             }
 
             // Clients :
@@ -295,8 +341,8 @@ int main(int argc, char *argv[])
             send(dSC, ack, strlen(ack) + 1, 0);
 
             // Reception pseudo
-            char* pseudo = malloc(32*sizeof(char));
-            int recvPseudo = recv(dSC, pseudo, 32, 0);
+            char* pseudo = malloc(sizeof(char)*TAILLE_PSEUDO);
+            int recvPseudo = recv(dSC, pseudo, TAILLE_PSEUDO, 0);
             if(recvPseudo == 0){
                 printf("Client %ld déconnecté \n", index);
                 i--;
@@ -310,7 +356,7 @@ int main(int argc, char *argv[])
             if (pseudo[strlen(pseudo)-1] == '\n') 
             pseudo[strlen(pseudo)-1] = '\0';
 
-            if (strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo, tabClientStruct, nbcli) == 1){
+            if (strncmp(pseudo, "@fin", 4) == 0 || strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo, tabClientStruct, nbcli) == 1){
                 char* messagePseudo = "Pseudo déjà utilisé ou pseudo invalide";
                 send_message(dSC, messagePseudo, strlen(messagePseudo));
 
@@ -319,19 +365,20 @@ int main(int argc, char *argv[])
                 send_message(dSC, messageFin, strlen(messageFin));
                                
                 tabClientStruct[i].dSC = -1;
-                strncpy(tabClientStruct[i].pseudo, "__DISCONNECTED__", sizeof(tabClientStruct[i].pseudo));
+                strncpy(tabClientStruct[i].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
                 i--;
                 continue;
             }
 
             // Mise à jour de l'indice pour les opérations suivantes
-            i = availableIndex;
+            i = indexDisponible;
 
-            dSClient* d = (dSClient*) malloc(sizeof(dSClient));
+            /*dSClient* d = (dSClient*) malloc(sizeof(dSClient));
             d->dSC = dSC;
-            strncpy(d->pseudo, pseudo, sizeof(d->pseudo));
+            strncpy(d->pseudo, pseudo, sizeof(d->pseudo));*/
 
-            tabClientStruct[i] = *d;
+            tabClientStruct[i].dSC = dSC;
+            strncpy(tabClientStruct[i].pseudo, pseudo, TAILLE_PSEUDO);
 
             // Ajout de l'attente du sémaphore et la création du thread avec les arguments
             sem_wait(&semaphore);
@@ -341,13 +388,12 @@ int main(int argc, char *argv[])
             pthread_create(&thread[i], NULL, communication, (void *)args);
 
             // Si un emplacement disponible a été trouvé, n'incrémentez pas i
-            if (availableSlotFound == -1) {
+            if (placeDisponible == -1) {
                 i++;
             }
         }
     }
     shutdown(dS, 2);
-
     sem_destroy(&semaphore);
     printf("Fin du programme\n");
 }

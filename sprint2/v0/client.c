@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <signal.h>
 
 
 #define tailleBufferMax  200
@@ -14,6 +15,8 @@ typedef struct {
     char* pseudo;
 } dSClient;
 
+int dS;
+
 /*créer la struct*/
 dSClient* creer_dSCClient(){
     dSClient* dSCli = (dSClient*) malloc(sizeof(dSClient));
@@ -21,6 +24,16 @@ dSClient* creer_dSCClient(){
     (*dSCli).pseudo = (char*) malloc(tailleBufferMax * sizeof(char));
     return dSCli;
 } 
+
+// Gestionnaire de signaux
+void sig_handler(int sig) {
+	printf("\nSIGINT attrapé, on stop le programme %i\n", getpid());
+    char* texte = "@fin";
+    int tailleBuffer = strlen(texte) + 1;
+    EnvoiTailleMessage(&tailleBuffer, dS);
+    EnvoiMessage(tailleBuffer, texte, dS);
+    exit(0);
+}
 
 int verif_commande(char* message) {
     char cmp = '@';
@@ -152,6 +165,11 @@ void* reception(void * args){
 int main(int argc, char *argv[])
 {
 
+    // Enregistrement du gestionnaire de signaux
+	if(signal(SIGINT, sig_handler) == SIG_ERR){
+		puts("Erreur à l'enregistrement du gestionnaire de signaux !");
+	}
+
     if (argc != 3)
     {
         perror("./client IPHost port");
@@ -160,7 +178,7 @@ int main(int argc, char *argv[])
 
     printf("Début programme\n");
 
-    int dS = socket(PF_INET, SOCK_STREAM, 0);
+    dS = socket(PF_INET, SOCK_STREAM, 0);
     if (dS == -1)
     {
         perror(" Socket non créé");
@@ -194,8 +212,9 @@ int main(int argc, char *argv[])
     carte->dSC = dS;
     printf("Entrez votre pseudo:\n");
     fgets(carte->pseudo, tailleBufferMax, stdin);
+    printf("pseudo : %s\n", carte->pseudo);
 
-    if (send(dS, carte->pseudo, sizeof(carte->pseudo), 0) == -1){
+    if (send(dS, carte->pseudo, strlen(carte->pseudo), 0) == -1){
         perror("pseudo non envoyé\n");
         exit(1);
     }
