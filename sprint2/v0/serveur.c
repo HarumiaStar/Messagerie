@@ -6,16 +6,55 @@
 #include <unistd.h>
 
 #include <pthread.h>
+#include <semaphore.h>
 
 typedef struct {
     int dSC;
     char pseudo[32];
 } dSClient;
 
-int* tabClient;
 dSClient* tabClientStruct;
 int tailleBufferReception;
 int lengthTabClient;
+
+typedef struct {
+    long index;
+    sem_t *semaphore;
+} thread_args;
+
+int send_message(int client_fd, const void *message, size_t message_size) {
+    // Vérifier si la socket est encore ouverte
+    if (client_fd < 0) {
+        printf("Erreur : la socket a été fermée (client %d) \n", client_fd);
+        return -1;
+    }
+
+    // Envoie taille
+    int sendTaille = send(client_fd, &message_size, sizeof(int), 0);
+    if (sendTaille == 0){
+        printf("Client déconnecté (sendTaille)\n");
+        return -1;
+    }
+    if (sendTaille == -1){
+        perror("Taille non envoyée\n");
+        return -1;
+    }
+    printf("Taille envoyée\n");
+
+    // Envoie message
+    int sendMessage = send(client_fd, message, message_size, 0);
+    if (sendMessage == 0){
+        printf("Client déconnecté (sendMessage)\n");
+        return -1;
+    }
+    if (sendMessage == -1){
+        perror("Message non envoyé\n");
+        return -1;
+    }
+    printf("Message envoyé\n");
+
+    return 0;
+}
 
 
 int verif_commande(char* message) {
@@ -66,16 +105,20 @@ int commande(char* mess){
 }
 
 
-void* communication(void* dSC){
+void* communication(void* arg){
 
-    long index = (long)(intptr_t) dSC;
+    thread_args *args = (thread_args *) arg;
+    long index = args->index;
+    sem_t *semaphore = args->semaphore;
 
     while (1){
 
         // Reception de la réponse client Writer: 
         int recvTaille = recv(tabClientStruct[index].dSC, &tailleBufferReception, sizeof(int), 0);
-        if (recvTaille == 0){
-            printf("Client %ld déconnecté\n", index);
+       if (recvTaille == 0) {
+            printf("Client %ld déconnecté (recvTaille =0) \n", index);
+            tabClientStruct[index].dSC = -1;
+            strncpy(tabClientStruct[index].pseudo, "__DISCONNECTED__", sizeof(tabClientStruct[index].pseudo));
             pthread_exit(NULL);
         }
         if (recvTaille == -1){
@@ -89,7 +132,8 @@ void* communication(void* dSC){
         char* message1 = malloc(tailleBufferReception*sizeof(char));
         int recvMessage = recv(tabClientStruct[index].dSC, message1, tailleBufferReception, 0);
         if(recvMessage == 0){
-            printf("Client %ld déconnecté \n", index);
+            printf("Client %ld déconnecté (recvMessage = 0) \n", index);
+            strncpy(tabClientStruct[index].pseudo, "__DISCONNECTED__", sizeof(tabClientStruct[index].pseudo));
             pthread_exit(NULL);
         }
         if(recvMessage == -1){
@@ -99,92 +143,49 @@ void* communication(void* dSC){
         printf("Réponse reçue : %s\n", message1);
 
         long i = 0;
-        while ( i < lengthTabClient){
+        int sortie = 0;
+        while (i < lengthTabClient && sortie == 0){
             if (i != index){
                 int cmd = commande(message1);
-                if (cmd == -1 || cmd == -2){
-                    // Envoi au client
-                    int sendTaille = send(tabClientStruct[i].dSC, &tailleBufferReception, sizeof(int), 0);
-                    if (sendTaille == 0){
-                        printf("Client %ld déconnecté (sendTaille)\n", i);
-                        pthread_exit(NULL);
+                if (cmd == -1){ // On envoie le message à tout le monde
+                    if (strncmp(tabClientStruct[i].pseudo, "__DISCONNECTED__", 15) != 0) {
+                        int sended = send_message(tabClientStruct[i].dSC, message1, tailleBufferReception);
+                        if (sended == -1){
+                            printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[i].pseudo);
+                        }
                     }
-                    if (sendTaille == -1){
-                        perror("Taille non envoyé\n");
-                        pthread_exit(NULL);
-                    }
-                    printf("Taille envoyée\n");
-
-                    // Envoie Message
-                    int sendMessage = send(tabClientStruct[i].dSC, message1, tailleBufferReception, 0);
-                    if (sendMessage == 0){
-                        printf("Client %ld déconnecté (sendMessage)\n", i);
-                        pthread_exit(NULL);
-                    }
-                    if (sendMessage == -1){
-                        perror("message non envoyé\n");
-                        pthread_exit(NULL);
-                    }
-                    printf("Message envoyé\n");
+                }
+                else if (cmd == -2) { // Déconnecter l'utilisateur actuel uniquement
+                    printf("Déconnexion du client %ld\n", index);
+                    printf("Client %s déconnecté (fin) \n", tabClientStruct[index].pseudo);
+                    close(tabClientStruct[index].dSC);
+                    tabClientStruct[index].dSC = -1;
+                    sortie = 1;
                 }
                 else if (cmd == -3) { // Pas de client trouvé pour ce pseudo
-                    // Envoi au client
-                    int sendTaille = send(tabClientStruct[index].dSC, &tailleBufferReception, sizeof(int), 0);
-                    if (sendTaille == 0){
-                        printf("Client %ld déconnecté (sendTaille)\n", index);
-                        pthread_exit(NULL);
-                    }
-                    if (sendTaille == -1){
-                        perror("Taille non envoyé\n");
-                        pthread_exit(NULL);
-                    }
-                    printf("Taille envoyée\n");
-
-                    // Envoie Message
                     char* message = "Pas de client trouvé pour ce pseudo";
-                    int sendMessage = send(tabClientStruct[index].dSC, message, strlen(message), 0);
-                    if (sendMessage == 0){
-                        printf("Client %ld déconnecté (sendMessage)\n", index);
-                        pthread_exit(NULL);
+                    int sended = send_message(tabClientStruct[index].dSC, message, strlen(message));
+                    if (sended == -1){
+                        printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[i].pseudo);
                     }
-                    if (sendMessage == -1){
-                        perror("message non envoyé\n");
-                        pthread_exit(NULL);
-                    }
-                    printf("Message envoyé\n");
                     break;
 
-                } else if (cmd == i){
-                    printf("on entre\n");
-                    // Envoi au client
-                    int sendTaille = send(tabClientStruct[i].dSC, &tailleBufferReception, sizeof(int), 0);
-                    if (sendTaille == 0){
-                        printf("Client %ld déconnecté (sendTaille)\n", i);
-                        pthread_exit(NULL);
+                } else if (cmd == i){ // On envoie le message privé
+                    int sended = send_message(tabClientStruct[i].dSC, message1, tailleBufferReception);
+                    if (sended == -1){
+                        printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[i].pseudo);
                     }
-                    if (sendTaille == -1){
-                        perror("Taille non envoyé\n");
-                        pthread_exit(NULL);
-                    }
-                    printf("Taille envoyée\n");
-
-                    // Envoie Message
-                    int sendMessage = send(tabClientStruct[i].dSC, message1, tailleBufferReception, 0);
-                    if (sendMessage == 0){
-                        printf("Client %ld déconnecté (sendMessage)\n", i);
-                        pthread_exit(NULL);
-                    }
-                    if (sendMessage == -1){
-                        perror("message non envoyé\n");
-                        pthread_exit(NULL);
-                    }
-                    printf("Message envoyé\n");
                 }
             }
             i+=1;
         }
+        if (sortie == 1) {
+            strncpy(tabClientStruct[index].pseudo, "__DISCONNECTED__", sizeof(tabClientStruct[index].pseudo));
+            break;
+        }
     }
-
+    sem_post(semaphore);
+    pthread_exit(NULL);
 }
 
 //  fonction pseudo déjà utilisé
@@ -238,16 +239,46 @@ int main(int argc, char *argv[])
 
     int nbcli = atoi(argv[2]);
     pthread_t* thread = (pthread_t*) malloc(nbcli*sizeof(int));
-    free(tabClient);
-    tabClient = malloc(nbcli * sizeof(int));
     tabClientStruct = malloc(nbcli * sizeof(dSClient));
 
     lengthTabClient = nbcli;
+
+    // Ajout du sémaphore
+    sem_t semaphore;
+    sem_init(&semaphore, 0, nbcli);
+
+    for (int i = 0; i < nbcli; i++){
+        tabClientStruct[i].dSC = -1;
+        strcpy(tabClientStruct[i].pseudo, "__DISCONNECTED__");
+    }
     
     // Le code:
     while (1){
+        int i = 0;
+        while (i < nbcli) {
+            // Recherche d'un emplacement vide dans le tableau tabClientStruct
+            int availableIndex = -1;
+            for (int j = 0; j < nbcli; j++) {
+                printf("Client %d : %s\n", j, tabClientStruct[j].pseudo);
+                if (strncmp(tabClientStruct[j].pseudo, "__DISCONNECTED__", 15) == 0) {
+                    availableIndex = j;
+                    break;
+                }
+            }
 
-        for (int i = 0; i < nbcli; i++) {
+            // Si aucun emplacement vide n'est trouvé, utilisez l'indice suivant
+            if (availableIndex == -1) {
+                availableIndex = i;
+            } else {
+                i = availableIndex;
+            }
+
+            // Ajoutez une variable booléenne pour vérifier si un emplacement disponible a été trouvé
+            int availableSlotFound = -1;
+            if (availableIndex == i) {
+                availableSlotFound = 1;
+            }
+
             // Clients :
             struct sockaddr_in aC;
             socklen_t lg = sizeof(struct sockaddr_in);
@@ -279,78 +310,44 @@ int main(int argc, char *argv[])
             if (pseudo[strlen(pseudo)-1] == '\n') 
             pseudo[strlen(pseudo)-1] = '\0';
 
-            if (strcmp(pseudo, "fin") == 0 || pseudoDejaUtilise(pseudo, tabClientStruct, nbcli) == 1){
-                char* message = "Pseudo déjà utilisé ou pseudo invalide";
-                int tailleMessage = strlen(message);
-                int sendTaille = send(dSC, &tailleMessage, sizeof(int), 0);
-                if (sendTaille == 0){
-                    printf("Client %ld déconnecté (sendTaille)\n", i);
-                    pthread_exit(NULL);
-                }
-                if (sendTaille == -1){
-                    perror("Taille non envoyé\n");
-                    pthread_exit(NULL);
-                }
-                printf("Taille envoyée\n");
-
-                // Envoie Message
-                int sendMessage = send(dSC, message, strlen(message), 0);
-                if (sendMessage == 0){
-                    printf("Client %ld déconnecté (sendMessage)\n", i);
-                    pthread_exit(NULL);
-                }
-                if (sendMessage == -1){
-                    perror("message non envoyé\n");
-                    pthread_exit(NULL);
-                }
-                printf("Message envoyé\n");
+            if (strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo, tabClientStruct, nbcli) == 1){
+                char* messagePseudo = "Pseudo déjà utilisé ou pseudo invalide";
+                send_message(dSC, messagePseudo, strlen(messagePseudo));
 
                 // envoyer @fin au client pour qu'il se déconnecte (avec la taille)
-                int tailleFin = strlen("@fin");
-                int sendTailleFin = send(dSC, &tailleFin, sizeof(int), 0);
-                if (sendTailleFin == 0){
-                    printf("Client %ld déconnecté (sendTailleFin)\n", i);
-                    pthread_exit(NULL);
-                }
-                if (sendTailleFin == -1){
-                    perror("TailleFin non envoyé\n");
-                    pthread_exit(NULL);
-                }
-                printf("TailleFin envoyée\n");
-
-                // Envoie Message
-                int sendMessageFin = send(dSC, "@fin", strlen("@fin"), 0);
-                if (sendMessageFin == 0){
-                    printf("Client %ld déconnecté (sendMessageFin)\n", i);
-                    pthread_exit(NULL);
-                }
-                if (sendMessageFin == -1){
-                    perror("messageFin non envoyé\n");
-                    pthread_exit(NULL);
-                }
-                printf("MessageFin envoyé\n");
+                char* messageFin = "@fin";
+                send_message(dSC, messageFin, strlen(messageFin));
                                
+                tabClientStruct[i].dSC = -1;
+                strncpy(tabClientStruct[i].pseudo, "__DISCONNECTED__", sizeof(tabClientStruct[i].pseudo));
                 i--;
                 continue;
             }
+
+            // Mise à jour de l'indice pour les opérations suivantes
+            i = availableIndex;
 
             dSClient* d = (dSClient*) malloc(sizeof(dSClient));
             d->dSC = dSC;
             strncpy(d->pseudo, pseudo, sizeof(d->pseudo));
 
             tabClientStruct[i] = *d;
-        }
 
-        for (int i = 0; i < lengthTabClient; i++ ){
-            pthread_create(&thread[i], NULL, communication, (void *)(intptr_t)i); 
-        }
-            
+            // Ajout de l'attente du sémaphore et la création du thread avec les arguments
+            sem_wait(&semaphore);
+            thread_args *args = (thread_args *) malloc(sizeof(thread_args));
+            args->index = i;
+            args->semaphore = &semaphore;
+            pthread_create(&thread[i], NULL, communication, (void *)args);
 
-        for (int i = 0; i < lengthTabClient; i++ ){
-            pthread_join(thread[i], NULL);
+            // Si un emplacement disponible a été trouvé, n'incrémentez pas i
+            if (availableSlotFound == -1) {
+                i++;
+            }
         }
     }
-
     shutdown(dS, 2);
+
+    sem_destroy(&semaphore);
     printf("Fin du programme\n");
 }
