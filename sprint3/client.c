@@ -60,6 +60,7 @@ int commande(char* mess){
 
         if (strncmp(cmd,"fin", 3) == 0) return 0; //on renvoie 0 si truc == fin
         if (strncmp(cmd,"sendFile",7) == 0)return -2; // on renvoie -2 si truc == sendFile
+        
     }
     return -1;
 }
@@ -244,6 +245,8 @@ void* envoie(void * args){
     
             continue;
         }
+
+        
 
 
         EnvoiTailleMessage(&tailleBuffer, dS);

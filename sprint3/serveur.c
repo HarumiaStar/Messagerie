@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <dirent.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -176,7 +176,8 @@ int commande(char* mess){
         if (strncmp(cmd,"fin", 3) == 0) return -2; //on renvoie -2 si truc == fin
         else if (strncmp(cmd, "list", 4) == 0) return -4; //on renvoie -4 si truc == list
         else if (strncmp(cmd, "help", 4) == 0) return -5; //on renvoie -5 si truc == help
-        else if (strncmp(cmd,"file", 4)==0) return -6 ; // on renvoie -6 si truc == file et donc qu'on s'apprête à recupérer un fichier
+        else if (strncmp(cmd,"file", 4)==0) return -6 ; // on renvoie -6 si truc == file et donc qu'on s'apprête à recupérer un fichier depuis le client
+        else if (strncmp(cmd,"fichierServ",11) == 0) return -7; // on renvoi la liste des fichiers du repertoire serv au client
         else {
             printf("Message privé ...\n");
             char target_pseudo[TAILLE_PSEUDO]; // Assurez-vous de définir une longueur maximale pour les pseudos
@@ -310,6 +311,34 @@ void* communication(void* arg){
                     printf("zone de reception fichier\n");
                     recevoirFichier(index);
                     break;
+                }
+                else if (cmd == -7){ // on envoi la liste des fichiers du repertoire serveur au client
+                   char liste[500];
+                   strcpy(liste,"Voici la liste des fichiers du serveur:\n");
+                   char ligne[270];
+                                       
+                   DIR *dir;
+                   struct dirent *entry;     
+                   dir = opendir("./filesServeur"); // Ouvre le repertoire "filesClient"
+                   if (dir == NULL) {
+                       perror("Erreur lors de l'ouverture du repertoire");
+                       continue; 
+                   }
+                   while ((entry = readdir(dir)) != NULL) { // Parcourt les fichiers
+                       sprintf(ligne, "  -->  %s\n", entry->d_name);
+                       strcat(liste, ligne); // ajoute le nom du fichier à la liste
+                   }
+                                       
+                   closedir(dir); //on ferme le repertoire   
+                   // envoi de la liste au client
+                   pthread_mutex_lock(&mutex);
+                                       
+                   int sended = send_message(tabClientStruct[index].dSC, liste, strlen(liste));
+                   if (sended == -1){
+                       printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[i].pseudo);
+                   }
+                   pthread_mutex_unlock(&mutex);
+
                 }
 
                 else if (cmd == i){ // On envoie le message privé
