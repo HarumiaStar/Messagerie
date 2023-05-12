@@ -27,6 +27,15 @@ typedef struct {
 pthread_mutex_t mutex;
 sem_t semaphore;
 
+
+void deconnecterClient(int index) {
+    pthread_mutex_lock(&mutex);
+    printf("Client %d déconnecté (recvTaille =0) \n", index);
+    tabClientStruct[index].dSC = -1;
+    strncpy(tabClientStruct[index].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
+    pthread_mutex_unlock(&mutex);
+}
+
 int send_message(int client_fd, const void *message, size_t message_size) {
     // Vérifier si la socket est encore ouverte
     if (client_fd < 0) {
@@ -73,6 +82,61 @@ void sig_handler(int sig) {
     exit(0);
 }
 
+void recevoirFichier(int index) {
+    // Reception du nom du fichier 
+    printf("Reception du nom du fichier\n");
+
+    char* nom_fichier = malloc(50*sizeof(char));
+    int recvMessage = recv(tabClientStruct[index].dSC, nom_fichier, 50, 0);
+
+    if(recvMessage == 0){deconnecterClient(index); free(nom_fichier); return;}
+    if(recvMessage == -1){perror("Réponse non reçue"); free(nom_fichier); return;}
+
+    printf("Réponse reçue : %s\n", nom_fichier);
+
+    // Reception de la taille du fichier 
+    printf("Reception de la taille du  fichier\n");
+    int tailleBufferReception;
+    int recvTaille = recv(tabClientStruct[index].dSC, &tailleBufferReception, sizeof(int), 0);
+
+    if (recvTaille == 0) {deconnecterClient(index); free(nom_fichier); return;}
+    if (recvTaille == -1){perror("Taille non reçue\n"); free(nom_fichier); return;}
+
+    printf("la taille %d\n", tailleBufferReception);
+
+    // on créer le chemin du fichier pour le repertoire filesServeur
+    char chemin_fichier[256];
+    sprintf(chemin_fichier, "./filesServeur/%s", nom_fichier);
+
+    // creation du fichier en mode write
+    FILE* fichier = fopen(chemin_fichier, "wb");
+    if (fichier == NULL){
+        perror("Erreur lors de l'ouverture du fichier");
+        free(nom_fichier);
+        return;
+    }
+
+    int taille_recu = 0; // on calcul la taille 
+
+    while (taille_recu < tailleBufferReception) {
+        char buffer[500];
+        int taille_restante = tailleBufferReception - taille_recu;
+        if (taille_restante > sizeof(buffer)) {
+            taille_restante = sizeof(buffer);
+        }
+        int recv_size = recv(tabClientStruct[index].dSC, buffer, taille_restante, 0);
+        if (recv_size == -1) {
+            perror("Erreur lors de la réception du fichier");
+            break;
+        }
+        fwrite(buffer, 1, recv_size, fichier); // on ecrit dans fichier le buffer reçu
+        taille_recu += recv_size;
+    }
+
+    fclose(fichier);
+    free(nom_fichier);
+    printf("Fichier reçu avec succès !\n");
+}
 
 int verif_commande(char* message) {
     char cmp = '@';
@@ -109,12 +173,10 @@ int commande(char* mess){
         cmd = strtok(cmd, "@"); // on récup l'(truc)
         printf("cmd %s \n", cmd);
 
-        printf(" strcmp fin : %d \n", strncmp(cmd,"fin", 3));
-        printf(" strcmp list : %d \n", strncmp(cmd,"list", 4));
-        printf(" strcmp help : %d \n", strncmp(cmd,"help", 4));
         if (strncmp(cmd,"fin", 3) == 0) return -2; //on renvoie -2 si truc == fin
         else if (strncmp(cmd, "list", 4) == 0) return -4; //on renvoie -4 si truc == list
         else if (strncmp(cmd, "help", 4) == 0) return -5; //on renvoie -5 si truc == help
+        else if (strncmp(cmd,"file", 4)==0) return -6 ; // on renvoie -6 si truc == file et donc qu'on s'apprête à recupérer un fichier
         else {
             printf("Message privé ...\n");
             char target_pseudo[TAILLE_PSEUDO]; // Assurez-vous de définir une longueur maximale pour les pseudos
@@ -140,6 +202,7 @@ int commande(char* mess){
 }
 
 
+
 void* communication(void* arg){
 
     thread_args *args = (thread_args *) arg;
@@ -150,42 +213,29 @@ void* communication(void* arg){
         
         // Reception de la réponse client Writer: 
         int recvTaille = recv(tabClientStruct[index].dSC, &tailleBufferReception, sizeof(int), 0);
-        if (recvTaille == 0) {
-            pthread_mutex_lock(&mutex);
-            printf("Client %ld déconnecté (recvTaille =0) \n", index);
-            tabClientStruct[index].dSC = -1;
-            strncpy(tabClientStruct[index].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
-            pthread_mutex_unlock(&mutex);
-            break;
-        }
-        if (recvTaille == -1){
-            perror("Taille non reçue\n");
-            break;
-        }
+
+        if (recvTaille == 0) {deconnecterClient(index);break;}
+        if (recvTaille == -1){perror("Taille non reçue\n");break;}
+
         printf("la taille %d\n", tailleBufferReception);
         
 
         // Reception message
         char* message1 = malloc(tailleBufferReception*sizeof(char));
+
         int recvMessage = recv(tabClientStruct[index].dSC, message1, tailleBufferReception, 0);
-        if(recvMessage == 0){
-            pthread_mutex_lock(&mutex);
-            printf("Client %ld déconnecté (recvMessage = 0) \n", index);
-            tabClientStruct[index].dSC = -1;
-            strncpy(tabClientStruct[index].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
-            pthread_mutex_unlock(&mutex);
-            break;
-        }
-        if(recvMessage == -1){
-            perror("Réponse non reçue");
-            break;
-        }
+
+        if(recvMessage == 0){deconnecterClient(index);break;}
+        if(recvMessage == -1){perror("Réponse non reçue");break;}
+
         printf("Réponse reçue : %s\n", message1);
 
         long i = 0;
         while (i < lengthTabClient && sortie == 0){
             if (i != index){
+                // Recuperation du code commande
                 int cmd = commande(message1);
+
                 if (cmd == -1){ // On envoie le message à tout le monde
                     pthread_mutex_lock(&mutex);
                     if (tabClientStruct[i].dSC != -1) {
@@ -205,6 +255,7 @@ void* communication(void* arg){
                     sortie = 1;
                     break;
                 }
+
                 else if (cmd == -3) { // Pas de client trouvé pour ce pseudo
                     pthread_mutex_lock(&mutex);
                     char* message = "Pas de client trouvé pour ce pseudo";
@@ -255,6 +306,12 @@ void* communication(void* arg){
                     pthread_mutex_unlock(&mutex);
                     break;
                 }
+                else if (cmd == -6){ // on receptionne le fichier client uploader
+                    printf("zone de reception fichier\n");
+                    recevoirFichier(index);
+                    break;
+                }
+
                 else if (cmd == i){ // On envoie le message privé
                     pthread_mutex_lock(&mutex);
                     int sended = send_message(tabClientStruct[i].dSC, message1, tailleBufferReception);
@@ -266,18 +323,12 @@ void* communication(void* arg){
             }
             i+=1;
         }
-
     }
-    printf("Sortie : %d\n", sortie);
+    
     printf("Sortie, déconnexion du client %s %ld\n", tabClientStruct[index].pseudo ,index);
-    pthread_mutex_lock(&mutex);
-    close(tabClientStruct[index].dSC);
-    strncpy(tabClientStruct[index].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
-    tabClientStruct[index].dSC = -1;
-    pthread_mutex_unlock(&mutex);
-            
-
+    deconnecterClient(index);
     printf("Client %s déconnecté (fin) \n", tabClientStruct[index].pseudo);
+
     sem_post(&semaphore);
     free(args);
     pthread_exit(NULL);
@@ -387,32 +438,29 @@ int main(int argc, char *argv[])
             char* pseudo = malloc(sizeof(char)*TAILLE_PSEUDO);
             int recvPseudo = recv(dSC, pseudo, TAILLE_PSEUDO, 0);
             if(recvPseudo == 0){
-                printf("Client %ld déconnecté \n", index);
+                printf("Client %d déconnecté \n", index);
                 continue;
             }
             if(recvPseudo == -1){
                 perror("Pseudo non reçue");
                 continue;
             }
-            printf("Pseudo client %ld : %s\n", dSC, pseudo);
+            printf("Pseudo client %d : %s\n", dSC, pseudo);
 
             if (pseudo[strlen(pseudo)-1] == '\n') 
             pseudo[strlen(pseudo)-1] = '\0';
 
             if (strncmp(pseudo, "__DÉCONNECTÉ__", 14) == 0 ||strncmp(pseudo, "@fin", 4) == 0 ||strncmp(pseudo, "list", 4) == 0 ||  strncmp(pseudo, "help", 4) == 0 ||   strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo) == 1){
+                
                 char* messagePseudo = "Pseudo déjà utilisé ou pseudo invalide";
                 send_message(dSC, messagePseudo, strlen(messagePseudo));
 
                 // envoyer @fin au client pour qu'il se déconnecte (avec la taille)
                 char* messageFin = "@fin";
                 send_message(dSC, messageFin, strlen(messageFin));
-
-                sem_post(&semaphore);
-                               
+                sem_post(&semaphore);        
                 continue;
             }
-
-            printf("je passe ici \n");
     
             pthread_mutex_lock(&mutex);
             

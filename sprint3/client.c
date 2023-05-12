@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include <signal.h>
 #include <dirent.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 
 #define tailleBufferMax  200
@@ -17,6 +19,9 @@ typedef struct {
 } dSClient;
 
 int dS;
+//promis jurer il y aura ces fonctions
+void EnvoiMessage(int, char*, int);
+void EnvoiTailleMessage(int *, int);
 
 /*créer la struct*/
 dSClient* creer_dSCClient(){
@@ -54,10 +59,89 @@ int commande(char* mess){
         cmd = strtok(cmd, "@"); // on récup l'(truc)
 
         if (strncmp(cmd,"fin", 3) == 0) return 0; //on renvoie 0 si truc == fin
-        if (strncmp(cmd,"listFile",7) == 0)return -2; // on renvoie -2 si truc == listFile
-
+        if (strncmp(cmd,"sendFile",7) == 0)return -2; // on renvoie -2 si truc == sendFile
     }
     return -1;
+}
+
+void sendFile(){
+    // Allocations memoires
+    char* fileToSend = (char*)malloc(50*sizeof(char));
+    char* chemin_fichier = (char*)malloc(150*sizeof(char));
+
+
+    printf("Quel fichier voulez vous envoyer?\n");
+    fgets(fileToSend, 50, stdin);
+
+    if (fileToSend[strlen(fileToSend)-1] == '\n') 
+            fileToSend[strlen(fileToSend)-1] = '\0';
+
+    // Creation du chemin du fichier
+    strcpy(chemin_fichier,"./filesClient/");
+    strcat(chemin_fichier,fileToSend);
+
+    printf("Chemin: %s\n",chemin_fichier);
+
+    // ouverture du fichier
+    FILE *fichier = fopen(chemin_fichier, "r");
+    if (fichier == NULL){
+        perror("Erreur lors de l'ouverture du fichier");
+        return;
+    }
+    // envoi code commande fichier au serveur: (previent le serveur qu'on va lui envoyer un fichier)
+    char* messCom = (char*)malloc(50*sizeof(char));
+    strcpy(messCom,"@file");
+    
+    //envoi taille de messCom:
+    int a = 5;
+    int taille= send(dS,&a,sizeof(int),0);
+    if(taille ==-1){
+        printf("ERRROR\n");
+    }
+    //envoi du messCom
+    int envoi = send(dS,messCom, sizeof(char)*5,0);
+    if(envoi == -1){
+        printf("erreur\n");
+    }
+    printf("on a envoyé la commande: %s \n", messCom);
+
+
+    // envoi nom fichier au serveur 
+    int sended = send(dS, fileToSend,strlen(fileToSend),0);
+    if (sended == -1){
+        printf("Errreur lors de l'envoi du nom de fichier\n");
+        
+    }
+
+    // calcule de la taille du fichier 
+    int fsize;
+    fseek(fichier, 0, SEEK_END);
+
+    fsize = ftell(fichier);
+    rewind(fichier);// remise du curseur de lecture à 0
+
+    printf("%d\n",fsize);
+
+    // envoi taille du fichier au serveur
+    int sending = send(dS,&fsize,sizeof(int),0 );
+    if (sending == -1){
+        printf("Errreur lors de l'envoi de la taille du fichier\n");
+        
+    }
+    
+    char* buffer = malloc(500*sizeof(char));
+    // send le fichier par bouts
+    while (fgets(buffer, 500, fichier) != NULL){
+        int sended = send(dS, buffer, strlen(buffer),0);
+        if (sended == -1){
+            printf("Erreur lors de l'envoi du fichier\n");
+        }
+    }
+    
+    fclose(fichier);
+    free(buffer);
+    free(messCom);
+    
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -135,11 +219,12 @@ void* envoie(void * args){
         if (texte[strlen(texte)-1] == '\n') 
             texte[strlen(texte)-1] = '\0';
         int tailleBuffer = strlen(texte) + 1;
+        printf("taille du message : %d\n", tailleBuffer);
 
         if (mess[strlen(mess)-1] == '\n') 
             mess[strlen(mess)-1] = '\0';
 
-        //Commande pour lister les fichier du repertoire "filesClient"
+        //Commande pour lister et choisir un fichier à envoyer au serveur (les fichier du repertoire "filesClient")
         if (commande(mess) == -2){
             printf("Voici la liste de vos fichiers:");
             DIR *dir;
@@ -148,13 +233,15 @@ void* envoie(void * args){
             dir = opendir("./filesClient"); // Ouvre le repertoire "filesClient"
             if (dir == NULL) {
                 perror("Erreur lors de l'ouverture du repertoire");
-                continue;   
+                continue; 
             }
             while ((entry = readdir(dir)) != NULL) { // Parcourt les fichiers
                 printf("%s\n", entry->d_name); // Affiche le nom du fichier
             }
             
-            closedir(dir); //on ferme le repertoire            
+            closedir(dir); //on ferme le repertoire
+            sendFile(); // envoi du fichier au serveur
+    
             continue;
         }
 
