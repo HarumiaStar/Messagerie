@@ -26,7 +26,7 @@ typedef struct {
 
 pthread_mutex_t mutex;
 sem_t semaphore;
-
+int dSF;
 
 void deconnecterClient(int index) {
     pthread_mutex_lock(&mutex);
@@ -84,12 +84,29 @@ void sig_handler(int sig) {
 
 void recevoirFichier(int index) {
     // Reception du nom du fichier 
+
+    printf("Connexion du client à la socket sendFile\n");
+    struct sockaddr_in aC;
+    socklen_t lg = sizeof(struct sockaddr_in);
+    int dSCF = accept(dSF, (struct sockaddr *)&aC, &lg);
+    if (dSCF == -1)
+    {
+        printf("Client %d non connecté \n", index);
+        return;
+    }
+    printf("Client %d Connecté \n", index);
+
+    char ack[] = "ACK";
+    send(dSCF, ack, strlen(ack) + 1, 0);
+
+
+
     printf("Reception du nom du fichier\n");
 
     char* nom_fichier = malloc(50*sizeof(char));
-    int recvMessage = recv(tabClientStruct[index].dSC, nom_fichier, 50, 0);
+    int recvMessage = recv(dSCF, nom_fichier, 50, 0);
 
-    if(recvMessage == 0){deconnecterClient(index); free(nom_fichier); return;}
+    if(recvMessage == 0){close(dSCF); free(nom_fichier); return;}
     if(recvMessage == -1){perror("Réponse non reçue"); free(nom_fichier); return;}
 
     printf("Réponse reçue : %s\n", nom_fichier);
@@ -97,9 +114,9 @@ void recevoirFichier(int index) {
     // Reception de la taille du fichier 
     printf("Reception de la taille du  fichier\n");
     int tailleBufferReception;
-    int recvTaille = recv(tabClientStruct[index].dSC, &tailleBufferReception, sizeof(int), 0);
+    int recvTaille = recv(dSCF, &tailleBufferReception, sizeof(int), 0);
 
-    if (recvTaille == 0) {deconnecterClient(index); free(nom_fichier); return;}
+    if (recvTaille == 0) {close(dSCF); free(nom_fichier); return;}
     if (recvTaille == -1){perror("Taille non reçue\n"); free(nom_fichier); return;}
 
     printf("la taille %d\n", tailleBufferReception);
@@ -124,7 +141,7 @@ void recevoirFichier(int index) {
         if (taille_restante > sizeof(buffer)) {
             taille_restante = sizeof(buffer);
         }
-        int recv_size = recv(tabClientStruct[index].dSC, buffer, taille_restante, 0);
+        int recv_size = recv(dSCF, buffer, taille_restante, 0);
         if (recv_size == -1) {
             perror("Erreur lors de la réception du fichier");
             break;
@@ -133,7 +150,7 @@ void recevoirFichier(int index) {
         taille_recu += recv_size;
         printf("taille recu: %d\n",taille_recu);
     }
-
+    close(dSCF);
     fclose(fichier);
     free(nom_fichier);
     printf("Fichier reçu avec succès !\n");
@@ -237,6 +254,7 @@ void* communication(void* arg){
             if (i != index){
                 // Recuperation du code commande
                 int cmd = commande(message1);
+                printf("%d",cmd);
 
                 if (cmd == -1){ // On envoie le message à tout le monde
                     pthread_mutex_lock(&mutex);
@@ -396,29 +414,58 @@ int main(int argc, char *argv[])
     int dS = socket(PF_INET, SOCK_STREAM, 0);
     if (dS == -1)
     {
-        perror(" Socket non créé");
+        perror(" Socket serveur non créé");
         exit(1);
     }
-    printf("Socket Créé\n");
+    dSF = socket(PF_INET, SOCK_STREAM, 0);
+    if (dSF == -1)
+    {
+        perror(" Socket sendFile non créé");
+        exit(1);
+    }
+    printf("Sockets Créés\n");
 
+    //socket serveur
     struct sockaddr_in ad;
+    //socket sendFile
+    struct sockaddr_in adFile;
+
+
     ad.sin_family = AF_INET;
+    adFile.sin_family = AF_INET;
+
     ad.sin_addr.s_addr = INADDR_ANY;
+    adFile.sin_addr.s_addr = INADDR_ANY;
+
     ad.sin_port = htons(atoi(argv[1]));
+    adFile.sin_port = htons(4000); // port du socket sendFile
+
     if (bind(dS, (struct sockaddr *)&ad, sizeof(ad)) == -1)
     {
-        perror("Socket pas nommée");
+        perror("Socket serveur pas nommée");
+        exit(1);
+    }
+    if (bind(dSF, (struct sockaddr *)&adFile, sizeof(adFile)) == -1)
+    {
+        perror("Socket sendFile pas nommée");
         exit(1);
     }
 
-    printf("Socket Nommé\n");
+
+    printf("Sockets Nommés\n");
 
     if (listen(dS, 7) == -1)
     {
-        perror("Mode écoute non activé");
+        perror("Mode écoute serveur non activé");
         exit(1);
     }
-    printf("Mode écoute\n");
+
+    if (listen(dSF, 7) == -1)
+    {
+        perror("Mode écoute sendFile non activé");
+        exit(1);
+    }
+    printf("Modes écoutes\n");
 
 
     int nbcli = atoi(argv[2]);

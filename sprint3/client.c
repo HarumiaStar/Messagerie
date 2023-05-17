@@ -17,8 +17,9 @@ typedef struct {
     int dSC;
     char* pseudo;
 } dSClient;
-
+char* argv1;
 int dS;
+int dSF;
 //promis jurer il y aura ces fonctions
 void EnvoiMessage(int, char*, int);
 void EnvoiTailleMessage(int *, int);
@@ -66,6 +67,7 @@ int commande(char* mess){
 }
 
 void sendFile(){
+    
     // Allocations memoires
     char* fileToSend = (char*)malloc(50*sizeof(char));
     char* chemin_fichier = (char*)malloc(150*sizeof(char));
@@ -99,6 +101,7 @@ void sendFile(){
     if(taille ==-1){
         printf("ERRROR\n");
     }
+    
     //envoi du messCom
     int envoi = send(dS,messCom, sizeof(char)*5,0);
     if(envoi == -1){
@@ -106,9 +109,35 @@ void sendFile(){
     }
     printf("on a envoyé la commande: %s \n", messCom);
 
+    //Connexion socket sendFile
+    dSF = socket(PF_INET, SOCK_STREAM, 0);
+    if (dSF == -1)
+    {
+        perror(" Socket non créé");
+        exit(1);
+    }
+    printf("Socket Créé\n");
 
+    struct sockaddr_in aSF;
+    aSF.sin_family = AF_INET;
+    inet_pton(AF_INET, argv1, &(aSF.sin_addr));
+    aSF.sin_port = htons(4000);
+    socklen_t lgAF = sizeof(struct sockaddr_in);
+    if (connect(dSF, (struct sockaddr *)&aSF, lgAF) == -1)
+    {
+        perror("Socket non connectée");
+        exit(1);
+    }
+    printf("Socket Connecté\n");
+
+    char ackF[4];
+    recv(dSF, ackF, sizeof(ackF), 0);
+    if (strcmp(ackF, "ACK") != 0) {
+        perror("Erreur lors de la synchronisation avec le serveur");
+        exit(1);
+    }
     // envoi nom fichier au serveur 
-    int sended = send(dS, fileToSend,strlen(fileToSend),0);
+    int sended = send(dSF, fileToSend,strlen(fileToSend),0);
     if (sended == -1){
         printf("Errreur lors de l'envoi du nom de fichier\n");
         
@@ -124,7 +153,7 @@ void sendFile(){
     printf("%d\n",fsize);
 
     // envoi taille du fichier au serveur
-    int sending = send(dS,&fsize,sizeof(int),0 );
+    int sending = send(dSF,&fsize,sizeof(int),0 );
     if (sending == -1){
         printf("Errreur lors de l'envoi de la taille du fichier\n");
         
@@ -135,14 +164,14 @@ void sendFile(){
     int bytes_sent=0;
     int bytes_read=0;
     while ((bytes_read = fread(buffer, 1,500, fichier) )!= 0){
-        int sended = send(dS, buffer,bytes_read,0);
+        int sended = send(dSF, buffer,bytes_read,0);
         if (sended == -1){
             printf("Erreur lors de l'envoi du fichier\n");
         }
         bytes_sent+=sended;
         printf("%d\n",bytes_sent);
     }
-    //shutdown(dS,2);
+    close(dSF);
     fclose(fichier);
     free(buffer);
     free(messCom);
@@ -294,7 +323,7 @@ int main(int argc, char *argv[])
         perror("./client IPHost port");
         exit(1);
     }
-
+    argv1 = argv[1];
     printf("Début programme\n");
 
     dS = socket(PF_INET, SOCK_STREAM, 0);
