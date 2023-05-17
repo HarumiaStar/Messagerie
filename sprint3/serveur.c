@@ -117,9 +117,9 @@ void recevoirFichier(int index) {
     }
 
     int taille_recu = 0; // on calcul la taille 
-
+    char buffer[500];
     while (taille_recu < tailleBufferReception) {
-        char buffer[500];
+        
         int taille_restante = tailleBufferReception - taille_recu;
         if (taille_restante > sizeof(buffer)) {
             taille_restante = sizeof(buffer);
@@ -131,6 +131,7 @@ void recevoirFichier(int index) {
         }
         fwrite(buffer, 1, recv_size, fichier); // on ecrit dans fichier le buffer reçu
         taille_recu += recv_size;
+        printf("taille recu: %d\n",taille_recu);
     }
 
     fclose(fichier);

@@ -132,13 +132,17 @@ void sendFile(){
     
     char* buffer = malloc(500*sizeof(char));
     // send le fichier par bouts
-    while (fgets(buffer, 500, fichier) != NULL){
-        int sended = send(dS, buffer, strlen(buffer),0);
+    int bytes_sent=0;
+    int bytes_read=0;
+    while ((bytes_read = fread(buffer, 1,500, fichier) )!= 0){
+        int sended = send(dS, buffer,bytes_read,0);
         if (sended == -1){
             printf("Erreur lors de l'envoi du fichier\n");
         }
+        bytes_sent+=sended;
+        printf("%d\n",bytes_sent);
     }
-    
+    //shutdown(dS,2);
     fclose(fichier);
     free(buffer);
     free(messCom);
