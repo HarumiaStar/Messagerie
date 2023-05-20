@@ -8,6 +8,8 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <ctype.h> 
+ #include <string.h>
 
 
 #define tailleBufferMax  200
@@ -20,6 +22,7 @@ typedef struct {
 char* argv1;
 int dS;
 int dSF;
+char* tabFichiers[100];
 //promis jurer il y aura ces fonctions
 void EnvoiMessage(int, char*, int);
 void EnvoiTailleMessage(int *, int);
@@ -79,6 +82,24 @@ void sendFile(){
     if (fileToSend[strlen(fileToSend)-1] == '\n') 
             fileToSend[strlen(fileToSend)-1] = '\0';
 
+    printf("Vous avez choisi le fichier 1: %s\n",fileToSend);
+
+    size_t len = strlen(fileToSend);
+    int i = 0;
+    int isDigit = 1;
+    while (i < len && isDigit) {
+        if (!isdigit(fileToSend[i])) {
+            isDigit = 0;
+        }
+        i++;
+    }
+    if (isDigit){
+        printf("Vous avez choisi le fichier 2: %s\n",tabFichiers[atoi(fileToSend)]);
+        fileToSend = tabFichiers[atoi(fileToSend)];
+    }
+
+    printf("Vous avez choisi le fichier 4: %s\n",fileToSend);
+    
     // Creation du chemin du fichier
     strcpy(chemin_fichier,"./filesClient/");
     strcat(chemin_fichier,fileToSend);
@@ -260,7 +281,7 @@ void* envoie(void * args){
 
         //Commande pour lister et choisir un fichier à envoyer au serveur (les fichier du repertoire "filesClient")
         if (commande(mess) == -2){
-            printf("Voici la liste de vos fichiers:");
+            printf("Voici la liste de vos fichiers:\n");
             DIR *dir;
             struct dirent *entry;
 
@@ -269,8 +290,13 @@ void* envoie(void * args){
                 perror("Erreur lors de l'ouverture du repertoire");
                 continue; 
             }
+            int i = 0;
             while ((entry = readdir(dir)) != NULL) { // Parcourt les fichiers
-                printf("%s\n", entry->d_name); // Affiche le nom du fichier
+                if (entry->d_type == DT_REG) {// Si c'est un fichier
+                    printf("%d : %s\n", i, entry->d_name); // Affiche le nom du fichier
+                    tabFichiers[i] = strdup(entry->d_name);
+                    i++;
+                }
             }
             
             closedir(dir); //on ferme le repertoire

@@ -28,3 +28,14 @@ client2:
 	@echo "Choisissez la version (v0, v1, v2) avec : make client VERSION=version ADRESSEIP=adresseip PORT=port ORDRE=ordre"
 	$(CC) -o $(OUT_DIR)/sprint2/$(VERSION)/client sprint2/$(VERSION)/client.c -lpthread 
 	./$(OUT_DIR)/sprint2/$(VERSION)/client $(ADRESSEIP) $(PORT) $(ORDRE)
+
+serveur3:
+	@echo "make serveur PORT=port NBCLI=nbcli" 
+	$(CC) -o $(OUT_DIR)/sprint3/serveur sprint3/serveur.c -lpthread 
+	./$(OUT_DIR)/sprint3/serveur $(PORT) $(NBCLI)
+
+client3:
+	@echo "make client ADRESSEIP=adresseip PORT=port"
+	$(CC) -o $(OUT_DIR)/sprint3/client sprint3/client.c -lpthread 
+	./$(OUT_DIR)/sprint3/client $(ADRESSEIP) $(PORT)
+
