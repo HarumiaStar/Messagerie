@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <ctype.h> 
- #include <string.h>
+
 
 
 #define tailleBufferMax  200
@@ -22,10 +22,15 @@ typedef struct {
 char* argv1;
 int dS;
 int dSF;
+int dSlistF;
 char* tabFichiers[100];
-//promis jurer il y aura ces fonctions
+int argv2;
+
+//déclaration des fonction préalable pour éviter les warnings
+
 void EnvoiMessage(int, char*, int);
 void EnvoiTailleMessage(int *, int);
+char* ReceptionMessage(int tailleBufferReception, int envoyeur);
 
 /*créer la struct*/
 dSClient* creer_dSCClient(){
@@ -64,7 +69,8 @@ int commande(char* mess){
 
         if (strncmp(cmd,"fin", 3) == 0) return 0; //on renvoie 0 si truc == fin
         if (strncmp(cmd,"sendFile",7) == 0)return -2; // on renvoie -2 si truc == sendFile
-        
+        if (strncmp(cmd, "getFile",7) == 0) return -3; // on renvoie -3 si truc == getFile
+        if (strncmp(cmd,"writeFile",9)== 0) return -4; 
     }
     return -1;
 }
@@ -79,26 +85,21 @@ void sendFile(){
     printf("Quel fichier voulez vous envoyer?\n");
     fgets(fileToSend, 50, stdin);
 
-    if (fileToSend[strlen(fileToSend)-1] == '\n') 
+    if (fileToSend[strlen(fileToSend)-1] == '\n') // On enlève le \n de la chaine
             fileToSend[strlen(fileToSend)-1] = '\0';
-
-    printf("Vous avez choisi le fichier 1: %s\n",fileToSend);
 
     size_t len = strlen(fileToSend);
     int i = 0;
     int isDigit = 1;
-    while (i < len && isDigit) {
-        if (!isdigit(fileToSend[i])) {
-            isDigit = 0;
+    while (i < len && isDigit) { // pour tout les caractères de la chaine
+        if (!isdigit(fileToSend[i])) { // si ce caractère est pas un nombre
+            isDigit = 0; // on sort de la boucle, ce n'est pas un indice mais le nom du fichier 
         }
         i++;
     }
-    if (isDigit){
-        printf("Vous avez choisi le fichier 2: %s\n",tabFichiers[atoi(fileToSend)]);
-        fileToSend = tabFichiers[atoi(fileToSend)];
+    if (isDigit){ // C'est l'indice du fichier
+        fileToSend = tabFichiers[atoi(fileToSend)]; // On récupère le nom du fichier depuis le tableau
     }
-
-    printf("Vous avez choisi le fichier 4: %s\n",fileToSend);
     
     // Creation du chemin du fichier
     strcpy(chemin_fichier,"./filesClient/");
@@ -142,7 +143,7 @@ void sendFile(){
     struct sockaddr_in aSF;
     aSF.sin_family = AF_INET;
     inet_pton(AF_INET, argv1, &(aSF.sin_addr));
-    aSF.sin_port = htons(4000);
+    aSF.sin_port = htons(argv2+260);
     socklen_t lgAF = sizeof(struct sockaddr_in);
     if (connect(dSF, (struct sockaddr *)&aSF, lgAF) == -1)
     {
@@ -197,6 +198,85 @@ void sendFile(){
     free(buffer);
     free(messCom);
     
+}
+
+////////////////////////////////////////////////////////////////////////
+
+void writeFile(){
+    // Socket debut ici
+    dSlistF = socket(PF_INET, SOCK_STREAM, 0);
+    if (dSlistF == -1)
+    {
+        perror(" Socket non créé");
+        exit(1);
+    }
+    printf("Socket Créé\n");
+
+    struct sockaddr_in aSlistF;
+    aSlistF.sin_family = AF_INET;
+    inet_pton(AF_INET, argv1, &(aSlistF.sin_addr));
+    aSlistF.sin_port = htons(argv2+300);
+    socklen_t lgAlistF = sizeof(struct sockaddr_in);
+    if (connect(dSlistF, (struct sockaddr *)&aSlistF, lgAlistF) == -1)
+    {
+        perror("Socket non connectée");
+        exit(1);
+    }
+    printf("Socket Connecté\n");
+
+    // fonction appelée dans reception
+
+    // Reception du nom du ficher
+    int tailleBufferReception = 25;
+    
+    char* nom_fichier = ReceptionMessage(tailleBufferReception, dSlistF);
+
+
+    // Reception de la taille du fichier 
+    printf("Reception de la taille du fichier\n");
+    int tailleFichier;
+
+    int recvTaille = recv(dSlistF, &tailleFichier, sizeof(int), 0);
+
+    if (recvTaille == 0) {printf("erreur reception taille\n"); return;}
+    if (recvTaille == -1){perror("Taille non reçue\n"); return;}
+
+    printf("la taille %d\n", tailleFichier);
+
+    // on créer le chemin du fichier pour le repertoire filesClient
+    char chemin_fichier[256];
+    sprintf(chemin_fichier, "./filesClient/%s", nom_fichier);
+
+    // creation du fichier en mode write
+    FILE* fichier = fopen(chemin_fichier, "wb");
+    if (fichier == NULL){
+        perror("Erreur lors de l'ouverture du fichier");
+        free(nom_fichier);
+        return;
+    }
+
+    int taille_recu = 0; // on calcul la taille 
+    char buffer[500];
+    while (taille_recu < tailleFichier) {
+        
+        int taille_restante = tailleFichier - taille_recu;
+        if (taille_restante > sizeof(buffer)) {
+            taille_restante = sizeof(buffer);
+        }
+        int recv_size = recv(dSlistF, buffer, taille_restante, 0);
+        if (recv_size == -1) {
+            perror("Erreur lors de la réception du fichier");
+            break;
+        }
+        fwrite(buffer, 1, recv_size, fichier); // on ecrit dans fichier le buffer reçu
+        taille_recu += recv_size;
+        printf("taille recu: %d\n",taille_recu);
+    }
+    close(dSlistF);
+    fclose(fichier);
+    free(nom_fichier);
+    printf("Fichier reçu avec succès !\n");
+
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -305,7 +385,48 @@ void* envoie(void * args){
             continue;
         }
 
-        
+        if (commande(mess) == -3){
+
+            printf(" Vous vous apprétez à recevoir un fichier\n");
+            // envoi code commande fichier au serveur: (previent le serveur qu'on veut recup un fichier)
+            char* messGet = (char*)malloc(50*sizeof(char));
+            strcpy(messGet,"@getFile");
+            
+            //envoi taille de messGet:
+            int a = 25;
+            int taille= send(dS,&a,sizeof(int),0);
+            if(taille ==-1){
+                printf("ERRROR\n");
+            }
+            
+            //envoi du messGet
+            int envoi = send(dS,messGet, sizeof(char)*25,0);
+            if(envoi == -1){
+                printf("erreur\n");
+            }
+            printf("on a envoyé la commande: %s \n", messGet);
+            
+            char* fileToGet = (char*)malloc(50*sizeof(char)); // pour stocker le nom du fichier qu'on veut
+    
+            //Récupération du nom du fichier qu'on veut recevoir
+            printf("Quel fichier voulez vous envoyer?\n");
+            fgets(fileToGet, 50, stdin);
+
+            //Gestion des problèmes du fgets
+            if (fileToGet[strlen(fileToGet)-1] == '\n') 
+                    fileToGet[strlen(fileToGet)-1] = '\0';
+
+            printf("Vous avez choisi le fichier : %s\n",fileToGet);
+
+            // envoi nom fichier au serveur 
+            int sended = send(dS, fileToGet,strlen(fileToGet),0);
+            if (sended == -1){
+                printf("Errreur lors de l'envoi du nom de fichier pour la reception\n");
+                
+            }
+            continue;
+
+        }
 
 
         EnvoiTailleMessage(&tailleBuffer, dS);
@@ -331,6 +452,10 @@ void* reception(void * args){
             printf("La fin Reception: \n");
             exit(0);
         }
+        if (commande(mess2) == -4){
+            writeFile();
+            continue;
+        }
     }
 }
 
@@ -350,6 +475,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
     argv1 = argv[1];
+    argv2 = atoi(argv[2]);
     printf("Début programme\n");
 
     dS = socket(PF_INET, SOCK_STREAM, 0);
@@ -363,7 +489,7 @@ int main(int argc, char *argv[])
     struct sockaddr_in aS;
     aS.sin_family = AF_INET;
     inet_pton(AF_INET, argv[1], &(aS.sin_addr));
-    aS.sin_port = htons(atoi(argv[2]));
+    aS.sin_port = htons(argv2);
     socklen_t lgA = sizeof(struct sockaddr_in);
     if (connect(dS, (struct sockaddr *)&aS, lgA) == -1)
     {

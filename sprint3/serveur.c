@@ -8,6 +8,8 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <ctype.h> 
+#include <sys/types.h>
 
 #define TAILLE_PSEUDO 32
 
@@ -27,6 +29,8 @@ typedef struct {
 pthread_mutex_t mutex;
 sem_t semaphore;
 int dSF;
+int dSlistF;
+char* tabFichiers[100];
 
 void deconnecterClient(int index) {
     pthread_mutex_lock(&mutex);
@@ -35,6 +39,8 @@ void deconnecterClient(int index) {
     strncpy(tabClientStruct[index].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
     pthread_mutex_unlock(&mutex);
 }
+
+
 
 int send_message(int client_fd, const void *message, size_t message_size) {
     // Vérifier si la socket est encore ouverte
@@ -81,7 +87,164 @@ void sig_handler(int sig) {
     }
     exit(0);
 }
+ 
+void getFile(int index){
 
+    // Reception du nom du fichier 
+    printf("Reception du nom du fichier\n");
+    char* chemin_fichier = (char*)malloc(150*sizeof(char));
+    char* nom_fichier = malloc(50*sizeof(char));
+
+    int recvMessage = recv(tabClientStruct[index].dSC, nom_fichier, 50, 0);
+
+    if(recvMessage == 0){deconnecterClient(index); free(nom_fichier); return;}
+    if(recvMessage == -1){perror("Réponse non reçue"); free(nom_fichier); return;}
+
+    printf("Réponse reçue : %s\n", nom_fichier);
+
+    if (nom_fichier[strlen(nom_fichier)-1] == '\n') // On enlève le \n de la chaine
+            nom_fichier[strlen(nom_fichier)-1] = '\0';
+    
+    size_t len = strlen(nom_fichier);
+    int i = 0;
+    int isDigit = 1;
+    while (i < len && isDigit) { // pour tout les caractères de la chaine
+        if (!isdigit(nom_fichier[i])) { // si ce caractère est pas un nombre
+            isDigit = 0; // on sort de la boucle, ce n'est pas un indice mais le nom du fichier 
+        }
+        i++;
+    }
+    if (isDigit){ // C'est l'indice du fichier
+        nom_fichier = tabFichiers[atoi(nom_fichier)]; // On récupère le nom du fichier depuis le tableau
+    }
+
+    // Creation du chemin du fichier
+    strcpy(chemin_fichier,"./filesServeur/");
+    strcat(chemin_fichier,nom_fichier);
+
+    printf("Chemin: %s\n",chemin_fichier);
+
+    // ouverture du fichier
+    FILE *fichier = fopen(chemin_fichier, "r");
+    if (fichier == NULL){
+        perror("Erreur lors de l'ouverture du fichier");
+        return;
+    }
+
+
+    // prevenir le client de la reception:
+    // envoi code commande fichier au client: (previent le serveur qu'on veut envoyer un fichier)
+    char* messWrite = (char*)malloc(50*sizeof(char));
+    strcpy(messWrite,"@writeFile");
+    
+    //envoi taille de messWrite:
+    int a = 25;
+    int taille= send(tabClientStruct[index].dSC,&a,sizeof(int),0);
+    if(taille ==-1){
+        printf("ERRROR\n");
+    }
+    
+    //envoi du messWrite
+    int envoi = send(tabClientStruct[index].dSC,messWrite, sizeof(char)*25,0);
+    if(envoi == -1){
+        printf("erreur\n");
+    }
+    printf("on a envoyé la commande: %s \n", messWrite);
+
+
+    //// ICI ///////////////////////////////////////////////
+    // connection du socket
+    printf("Connexion du client à la socket getFile\n");
+    struct sockaddr_in aClistF;
+    socklen_t lgClistF = sizeof(struct sockaddr_in);
+    int dSClistF = accept(dSlistF, (struct sockaddr *)&aClistF, &lgClistF);
+    if (dSClistF == -1)
+    {
+        printf("Client %d non connecté \n", index);
+        return;
+    }
+    printf("Client %d Connecté \n", index);
+
+    // envoi du nom du fichier au client ( car thread reception )
+
+    int envoie = send(dSClistF,nom_fichier, sizeof(char)*25,0);
+    if(envoie == -1){
+        printf("erreur\n");
+    }
+
+    printf("on a envoyé le nom du fichier \n");
+
+
+    // calcule de la taille du fichier 
+    int fsize;
+    fseek(fichier, 0, SEEK_END);
+
+    fsize = ftell(fichier);
+    rewind(fichier);// remise du curseur de lecture à 0
+
+    printf("%d\n",fsize);
+
+    // envoi taille du fichier au client
+    int sending = send(dSClistF,&fsize,sizeof(int),0 );
+    if (sending == -1){
+        printf("Errreur lors de l'envoi de la taille du fichier\n");
+        
+    }
+
+    char* buffer = malloc(500*sizeof(char));
+    // send le fichier par bouts
+    int bytes_sent=0;
+    int bytes_read=0;
+    while ((bytes_read = fread(buffer, 1,500, fichier) )!= 0){
+        int sended = send(dSClistF, buffer,bytes_read,0);
+        if (sended == -1){
+            printf("Erreur lors de l'envoi du fichier\n");
+        }
+        bytes_sent+=sended;
+        printf("%d\n",bytes_sent);
+    }
+    close(dSClistF);
+    fclose(fichier);
+    free(buffer);
+    free(messWrite);
+
+
+}
+void sendFileList(int index) {
+    char fileList[500];
+    strcpy(fileList, "Voici la liste des fichiers du serveur:\n");
+    char line[270];
+
+    DIR *dir;
+    struct dirent *entry;
+
+    dir = opendir("./filesServeur");
+    if (dir == NULL) {
+        perror("Erreur lors de l'ouverture du repertoire");
+        return;
+    }
+
+    int i = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) {// Si c'est un fichier
+            sprintf(line, "%d  -->  %s\n", i, entry->d_name);
+            strcat(fileList, line);
+            tabFichiers[i] = strdup(entry->d_name);
+            i++;
+        }
+    }
+
+    closedir(dir);
+
+    pthread_mutex_lock(&mutex);
+
+    int sent = send_message(tabClientStruct[index].dSC, fileList, strlen(fileList));
+    if (sent == -1) {
+        printf("Erreur lors de l'envoi du message au client\n");
+    }
+
+    pthread_mutex_unlock(&mutex);
+}
 void recevoirFichier(int index) {
     // Reception du nom du fichier 
 
@@ -196,6 +359,7 @@ int commande(char* mess){
         else if (strncmp(cmd, "help", 4) == 0) return -5; //on renvoie -5 si truc == help
         else if (strncmp(cmd,"file", 4)==0) return -6 ; // on renvoie -6 si truc == file et donc qu'on s'apprête à recupérer un fichier depuis le client
         else if (strncmp(cmd,"fichierServ",11) == 0) return -7; // on renvoi la liste des fichiers du repertoire serv au client
+        else if ( strncmp(cmd,"getFile", 7) == 0) return -8; // on envoi le fichier demandé par le client
         else {
             printf("Message privé ...\n");
             char target_pseudo[TAILLE_PSEUDO]; // Assurez-vous de définir une longueur maximale pour les pseudos
@@ -331,32 +495,18 @@ void* communication(void* arg){
                     recevoirFichier(index);
                     break;
                 }
+
+                
                 else if (cmd == -7){ // on envoi la liste des fichiers du repertoire serveur au client
-                   char liste[500];
-                   strcpy(liste,"Voici la liste des fichiers du serveur:\n");
-                   char ligne[270];
-                                       
-                   DIR *dir;
-                   struct dirent *entry;     
-                   dir = opendir("./filesServeur"); // Ouvre le repertoire "filesClient"
-                   if (dir == NULL) {
-                       perror("Erreur lors de l'ouverture du repertoire");
-                       continue; 
-                   }
-                   while ((entry = readdir(dir)) != NULL) { // Parcourt les fichiers
-                       sprintf(ligne, "  -->  %s\n", entry->d_name);
-                       strcat(liste, ligne); // ajoute le nom du fichier à la liste
-                   }
-                                       
-                   closedir(dir); //on ferme le repertoire   
-                   // envoi de la liste au client
-                   pthread_mutex_lock(&mutex);
-                                       
-                   int sended = send_message(tabClientStruct[index].dSC, liste, strlen(liste));
-                   if (sended == -1){
-                       printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[i].pseudo);
-                   }
-                   pthread_mutex_unlock(&mutex);
+                   sendFileList(index);
+                }
+                else if (cmd == -8){ // envoi d'un fichier au client
+                    sendFileList(index);
+
+                    printf("Avant d'entré\n");
+                    getFile(index);
+                    printf("Après être entré\n");
+                    break;
 
                 }
 
@@ -423,22 +573,33 @@ int main(int argc, char *argv[])
         perror(" Socket sendFile non créé");
         exit(1);
     }
+    dSlistF = socket(PF_INET, SOCK_STREAM, 0);
+    if (dSlistF == -1)
+    {
+        perror(" Socket listFile non créé");
+        exit(1);
+    }
     printf("Sockets Créés\n");
 
     //socket serveur
     struct sockaddr_in ad;
     //socket sendFile
     struct sockaddr_in adFile;
+    //socket listFile
+    struct sockaddr_in adListFile;
 
 
     ad.sin_family = AF_INET;
     adFile.sin_family = AF_INET;
+    adListFile.sin_family = AF_INET;
 
     ad.sin_addr.s_addr = INADDR_ANY;
     adFile.sin_addr.s_addr = INADDR_ANY;
+    adListFile.sin_addr.s_addr = INADDR_ANY;
 
     ad.sin_port = htons(atoi(argv[1]));
-    adFile.sin_port = htons(4000); // port du socket sendFile
+    adFile.sin_port = htons(atoi(argv[1])+260); // port du socket sendFile
+    adListFile.sin_port = htons(atoi(argv[1])+300); // port du socket sendFile
 
     if (bind(dS, (struct sockaddr *)&ad, sizeof(ad)) == -1)
     {
@@ -446,6 +607,11 @@ int main(int argc, char *argv[])
         exit(1);
     }
     if (bind(dSF, (struct sockaddr *)&adFile, sizeof(adFile)) == -1)
+    {
+        perror("Socket sendFile pas nommée");
+        exit(1);
+    }
+    if (bind(dSlistF, (struct sockaddr *)&adListFile, sizeof(adListFile)) == -1)
     {
         perror("Socket sendFile pas nommée");
         exit(1);
@@ -459,8 +625,12 @@ int main(int argc, char *argv[])
         perror("Mode écoute serveur non activé");
         exit(1);
     }
-
     if (listen(dSF, 7) == -1)
+    {
+        perror("Mode écoute sendFile non activé");
+        exit(1);
+    }
+    if (listen(dSlistF, 7) == -1)
     {
         perror("Mode écoute sendFile non activé");
         exit(1);
@@ -527,7 +697,7 @@ int main(int argc, char *argv[])
             if (pseudo[strlen(pseudo)-1] == '\n') 
             pseudo[strlen(pseudo)-1] = '\0';
 
-            if (strncmp(pseudo, "__DÉCONNECTÉ__", 14) == 0 || strncmp(pseudo, "fichierServ", 11) == 0 || strncmp(pseudo, "sendFile", 8) == 0 || strncmp(pseudo, "@fin", 4) == 0 ||strncmp(pseudo, "list", 4) == 0 ||  strncmp(pseudo, "help", 4) == 0 ||   strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo) == 1){
+            if (strncmp(pseudo, "__DÉCONNECTÉ__", 14) == 0|| strncmp(pseudo, "getFile", 7) == 0 || strncmp(pseudo, "fichierServ", 11) == 0 || strncmp(pseudo, "sendFile", 8) == 0 || strncmp(pseudo, "@fin", 4) == 0 ||strncmp(pseudo, "list", 4) == 0 ||  strncmp(pseudo, "help", 4) == 0 ||   strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo) == 1){
                 
                 char* messagePseudo = "Pseudo déjà utilisé ou pseudo invalide";
                 send_message(dSC, messagePseudo, strlen(messagePseudo));
