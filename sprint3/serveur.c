@@ -104,6 +104,8 @@ void getFile(int index){
 
     printf("Réponse reçue : %s\n", nom_fichier);
 
+    nom_fichier[strlen(nom_fichier)] = '\0';
+
     if (nom_fichier[strlen(nom_fichier)-1] == '\n') // On enlève le \n de la chaine
             nom_fichier[strlen(nom_fichier)-1] = '\0';
     

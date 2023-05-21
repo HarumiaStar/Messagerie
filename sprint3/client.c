@@ -84,6 +84,8 @@ void sendFile(){
 
     printf("Quel fichier voulez vous envoyer?\n");
     fgets(fileToSend, 50, stdin);
+    
+    fileToSend[strlen(fileToSend)] = '\0';
 
     if (fileToSend[strlen(fileToSend)-1] == '\n') // On enlève le \n de la chaine
             fileToSend[strlen(fileToSend)-1] = '\0';
