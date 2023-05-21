@@ -95,7 +95,9 @@ void getFile(int index){
     char* chemin_fichier = (char*)malloc(150*sizeof(char));
     char* nom_fichier = malloc(50*sizeof(char));
 
+    pthread_mutex_lock(&mutex);
     int recvMessage = recv(tabClientStruct[index].dSC, nom_fichier, 50, 0);
+    pthread_mutex_unlock(&mutex);
 
     if(recvMessage == 0){deconnecterClient(index); free(nom_fichier); return;}
     if(recvMessage == -1){perror("Réponse non reçue"); free(nom_fichier); return;}
@@ -139,13 +141,17 @@ void getFile(int index){
     
     //envoi taille de messWrite:
     int a = 25;
+    pthread_mutex_lock(&mutex);
     int taille= send(tabClientStruct[index].dSC,&a,sizeof(int),0);
+    pthread_mutex_unlock(&mutex);
     if(taille ==-1){
         printf("ERRROR\n");
     }
     
     //envoi du messWrite
+    pthread_mutex_lock(&mutex);
     int envoi = send(tabClientStruct[index].dSC,messWrite, sizeof(char)*25,0);
+    pthread_mutex_unlock(&mutex);
     if(envoi == -1){
         printf("erreur\n");
     }
@@ -237,14 +243,13 @@ void sendFileList(int index) {
     closedir(dir);
 
     pthread_mutex_lock(&mutex);
-
     int sent = send_message(tabClientStruct[index].dSC, fileList, strlen(fileList));
     if (sent == -1) {
         printf("Erreur lors de l'envoi du message au client\n");
     }
-
     pthread_mutex_unlock(&mutex);
 }
+
 void recevoirFichier(int index) {
     // Reception du nom du fichier 
 
