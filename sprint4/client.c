@@ -456,7 +456,9 @@ void* reception(void * args){
         char* mess2 = ReceptionMessage(tailleBufferReception, dS);
 
         if (commande(mess2) == -5){
+            printf("Changement de salon ... \n");
             int idSalonDemande;
+            mess2 = strtok(mess2, " ");
             mess2 = strtok(NULL, " ");
             idSalonDemande = atoi(mess2);
             arg->idSalon = idSalonDemande;

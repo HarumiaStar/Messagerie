@@ -407,6 +407,7 @@ int commande(char* mess){
 }
 
 int idSalonDemande(char * nomSalonDemande){
+    printf("Nom du salon demandé : %s\n", nomSalonDemande);
     
     size_t len = strlen(nomSalonDemande);
     int j = 0;
@@ -418,13 +419,16 @@ int idSalonDemande(char * nomSalonDemande){
         j++;
     }
     if (isDigit){ // C'est l'indice du salon
+        printf("C'est un indice %d\n", atoi(nomSalonDemande));
         return atoi(nomSalonDemande);
     }
 
     int i = 0;
     while (i < nbSalons){
-        if (strncmp(tabSalons[i].nomSalon, nomSalonDemande, TAILLE_NOM_SALON) != 0)
+        if (strncmp(tabSalons[i].nomSalon, nomSalonDemande, strlen(nomSalonDemande)) == 0){
+            printf("Salon trouvé\n");
             return i;
+        }
         i++;
     }
     return -1;
@@ -462,7 +466,7 @@ void* communication(void* arg){
             if (i != index){
                 // Recuperation du code commande
                 int cmd = commande(message1);
-                printf("%d",cmd);
+                printf("cmd == %d\n",cmd);
 
                 if (cmd == -1){ // On envoie le message à tout le monde
                     pthread_mutex_lock(&mutex);
@@ -554,20 +558,37 @@ void* communication(void* arg){
                     break;
                 }
                 else if (cmd == -9){ // @goTo 2
+                
+                    printf("Commande goTo lancée \n");
+
                     pthread_mutex_lock(&mutex);
 
-                    char* nomSalonDemande;
+                    char* nomSalonDemande = malloc(TAILLE_NOM_SALON*sizeof(char));
                     strcpy(nomSalonDemande, message1);
+                    printf("strcpy fait, nomSalonDemande = %s \n", nomSalonDemande);
 
                     if (nomSalonDemande[strlen(nomSalonDemande)-1] == '\n') nomSalonDemande[strlen(nomSalonDemande)-1] == '\0';
 
+                    printf("nom du salon %s \n", nomSalonDemande);
+
+                    nomSalonDemande = strtok(nomSalonDemande, " ");
                     nomSalonDemande = strtok(NULL, " ");
 
-                    printf("nom du salon %s \n", nomSalonDemande);
+                    for (int i = 0; i < strlen(nomSalonDemande); i++) {
+                        if (nomSalonDemande[i] == '\n') {
+                            nomSalonDemande[i] = '\0';
+                        }
+                    }
+
+                    printf("nom du salon après strtok %s \n", nomSalonDemande);
                     
                     int idSalon = idSalonDemande(nomSalonDemande);
+                    printf("idSalon = %d\n", idSalon);
                     if (idSalon == -1) {
-
+                        printf("Salon non trouvé\n");
+                        send_message(tabClientStruct[index].dSC, "Salon non trouvé", strlen("Salon non trouvé"));
+                        pthread_mutex_unlock(&mutex);
+                        break;
                     }
                     tabClientStruct[index].idSalon = idSalon;
 
@@ -581,21 +602,24 @@ void* communication(void* arg){
 
                     strcat(newMessage, "\n");
 
+                    printf("Nouveau message : %s\n", newMessage);
+
                     int sended = send_message(tabClientStruct[index].dSC, newMessage, tailleBufferReception);
                     if (sended == -1){
                         printf("Erreur lors de l'envoi du message de changement de salon à %s\n", tabClientStruct[index].pseudo);
                     }
                     pthread_mutex_unlock(&mutex);
+                    printf("Changement de salon effectué\n");
                 }
                 else if (cmd ==-10){ // on envoi la liste des salons disponibles 
                     printf("\nListe des salons disponibles :\n");
                     char* message = malloc(4096*sizeof(char));
                     strcat(message, "Liste des salons disponibles :\n");
-                    for (int j = 0; j < nbSalons; ++j) {
+                    for (int j = 0; j < nbSalons; j++) {
                         
                         printf("Salon %d : %s , description: %s\n", j ,tabSalons[j].nomSalon, tabSalons[j].descriptionSalon);
                         char idSalon[2];
-                        sprintf(idSalon, "%d", tabClientStruct[j].idSalon);
+                        sprintf(idSalon, "%d", j);
                         strcat(message, idSalon);
                         strcat(message, " Nom: ");
                         strcat(message,tabSalons[j].nomSalon);
