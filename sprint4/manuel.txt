@@ -1,0 +1,11 @@
+
+Liste des commandes :
+
+@fin : Clôt la connection 
+@list : Affiche la liste des clients connectés
+@fichierServ : Affiche la liste des fichiers disponibles sur le serveur
+@sendFile : Liste les fichiers disponible côté client pour l'envoi puis demande le nom du fichier ou l'index à envoyer et l'envoie au serveur
+@getFile : Liste les fichiers disponible côté serveur pour l'envoi puis demande le nom du fichier ou l'index à envoyer et l'envoie au client
+@(pseudo_client) (message) : envoie le message en privé à ce client
+(message) : Envoie le message à tous les clients
+@help : affiche cette liste de commande
