@@ -9,3 +9,4 @@ Liste des commandes :
 @(pseudo_client) (message) : envoie le message en privé à ce client
 (message) : Envoie le message à tous les clients
 @help : affiche cette liste de commande
+@addSalon nomSalon -descriptionSalon : 

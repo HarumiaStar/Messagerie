@@ -37,6 +37,7 @@ typedef struct {
 
 salon* tabSalons;
 int nbSalons;
+int nbSalonsUtilises;
 
 pthread_mutex_t mutex;
 sem_t semaphore;
@@ -382,6 +383,7 @@ int commande(char* mess){
         else if ( strncmp(cmd,"getFile", 7) == 0) return -8; // on envoi le fichier demandé par le client
         else if (strncmp(cmd,"goTo", 4) == 0) return -9; //on renvoie -9 si truc == goTo pour le changement de salon
         else if (strncmp(cmd,"getSalons", 9) == 0) return -10; // on renvoi la liste des salons disponibles
+        else if (strncmp(cmd, "addSalon", 8) == 0) return -11; // On créer un nouveau salon de discussion
         else {
             printf("Message privé ...\n");
             char target_pseudo[TAILLE_PSEUDO]; // Assurez-vous de définir une longueur maximale pour les pseudos
@@ -432,6 +434,53 @@ int idSalonDemande(char * nomSalonDemande){
         i++;
     }
     return -1;
+}
+
+/**
+* @brief Fonction qui permet de créer un nouveau salon de discussion et de l'ajouter au tableau des salons
+* @param index : index du client qui a demandé la création du salon
+* @param nomSalon : nom du salon
+* @param descriptionSalon : description du salon
+* @return void
+*/
+void addNewSalon(int index, char* nomSalon, char* descriptionSalon){
+    printf("Création d'un nouveau salon\n");
+    // On vérifie que le nombre de salons n'est pas dépassé
+    printf("nbSalonsUtilises = %d\n", nbSalonsUtilises);
+    printf("nbSalons = %d\n", nbSalons);
+    if (nbSalonsUtilises >= nbSalons) {
+        pthread_mutex_lock(&mutex);
+        char* messageMaxSalon = "Nombre de salons dépassé";
+        printf("%s\n", messageMaxSalon);
+        send_message(tabClientStruct[index].dSC, messageMaxSalon, strlen(messageMaxSalon));
+        pthread_mutex_unlock(&mutex);
+        return;
+    }
+    // On vérifie que le nom du salon n'est pas déjà utilisé
+    for (int i = 0; i < nbSalons; ++i) {
+        if (strcmp(tabSalons[i].nomSalon, nomSalon) == 0) {
+            pthread_mutex_lock(&mutex);
+            char* messageNomIndispo = "Le nom du salon est déjà utilisé";
+            printf("%s\n", messageNomIndispo);
+            send_message(tabClientStruct[index].dSC, messageNomIndispo, strlen(messageNomIndispo));
+            pthread_mutex_unlock(&mutex);
+            return;
+        }
+    }
+    // On ajoute le salon au tableau des salons
+    strcpy(tabSalons[nbSalonsUtilises].nomSalon, nomSalon);
+    strcpy(tabSalons[nbSalonsUtilises].descriptionSalon, descriptionSalon);
+    nbSalonsUtilises++;
+    printf("nbSalonsUtilises = %d\n", nbSalonsUtilises);
+    printf("nbSalons = %d\n", nbSalons);
+    
+
+    // On envoie un message au client pour lui dire que le salon a été ajouté
+    pthread_mutex_lock(&mutex);
+    char* message2 = "Salon ajouté";
+    printf("%s\n", message2);
+    send_message(tabClientStruct[index].dSC, message2, strlen(message2));
+    pthread_mutex_unlock(&mutex);
 }
 
 void* communication(void* arg){
@@ -610,20 +659,22 @@ void* communication(void* arg){
                     }
                     pthread_mutex_unlock(&mutex);
                     printf("Changement de salon effectué\n");
+                    break;
                 }
                 else if (cmd ==-10){ // on envoi la liste des salons disponibles 
                     printf("\nListe des salons disponibles :\n");
                     char* message = malloc(4096*sizeof(char));
-                    strcat(message, "Liste des salons disponibles :\n");
+                    strcat(message, "\nListe des salons disponibles :\n");
                     for (int j = 0; j < nbSalons; j++) {
                         
                         printf("Salon %d : %s , description: %s\n", j ,tabSalons[j].nomSalon, tabSalons[j].descriptionSalon);
                         char idSalon[2];
+                        strcat(message, "Salon ");
                         sprintf(idSalon, "%d", j);
                         strcat(message, idSalon);
-                        strcat(message, " Nom: ");
+                        strcat(message, " : Nom: ");
                         strcat(message,tabSalons[j].nomSalon);
-                        strcat(message, " Descritpion: ");
+                        strcat(message, " , Descritpion: ");
                         strcat(message,tabSalons[j].descriptionSalon);
                         strcat(message, "\n");
                         
@@ -632,6 +683,52 @@ void* communication(void* arg){
                     if (sended == -1){
                         printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[index].pseudo);
                     }
+                    break;
+                }
+                else if (cmd == -11){ // Création d'un nouveau salon
+                    // @addSalon nomSalon - descriptionSalon - envoyé par ...
+                    // On récupère le nom du salon
+                    char* nomSalon = malloc(TAILLE_NOM_SALON*sizeof(char));
+                    strcpy(nomSalon, message1);
+                    nomSalon = strtok(nomSalon, " ");
+                    nomSalon = strtok(NULL, " ");
+
+                    // On récupère la description du salon
+                    char* descriptionSalon = malloc(TAILLE_DESCRIPTION_SALON*sizeof(char));
+                    strcpy(descriptionSalon, message1);
+                    descriptionSalon = strtok(descriptionSalon, "-");
+                    descriptionSalon = strtok(NULL, "-");
+
+                    // On enlève les \n en trop à la fin des chaines
+                    for (int i = 0; i < strlen(nomSalon); i++) {
+                        if (nomSalon[i] == '\n') {
+                            nomSalon[i] = '\0';
+                        }
+                    }
+                    for (int i = 0; i < strlen(descriptionSalon); i++) {
+                        if (descriptionSalon[i] == '\n') {
+                            descriptionSalon[i] = '\0';
+                        }
+                    }
+
+                    // On vérifie qu'il y a bien un nom et une description
+                    printf("Nom du salon : %s\n", nomSalon);
+                    printf("Description du salon : %s\n", descriptionSalon);
+
+                    if (nomSalon == "-" || descriptionSalon[0] == ' ') {
+                        pthread_mutex_lock(&mutex);
+                        char* message = "Veuillez entrer un nom et une description pour le salon";
+                        int sended = send_message(tabClientStruct[index].dSC, message, strlen(message));
+                        if (sended == -1){
+                            printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[index].pseudo);
+                        }
+                        pthread_mutex_unlock(&mutex);
+                        break;
+                    }
+
+
+                    addNewSalon(index, nomSalon, descriptionSalon);
+                    break;
                 }
                 else if (cmd == i){ // On envoie le message privé
                     pthread_mutex_lock(&mutex);
@@ -769,10 +866,12 @@ int main(int argc, char *argv[])
     // Salon 1
     strcpy(tabSalons[0].nomSalon, "General");
     strcpy(tabSalons[0].descriptionSalon, "Le salon general commun.");
+    nbSalonsUtilises = 1;
     
     // Salon 2
     strcpy(tabSalons[1].nomSalon, "Secondaire");
     strcpy(tabSalons[1].descriptionSalon, "Le salon secondaire pas commun lol.");
+    nbSalonsUtilises = 2;
 
 
     lengthTabClient = nbcli;
