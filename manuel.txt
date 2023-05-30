@@ -10,5 +10,6 @@ Liste des commandes :
 (message) : Envoie le message à tous les clients.
 @help : Affiche cette liste de commande.
 @getSalons : Liste les salons du serveur, "DISPONIBLE" à la création ou déjà existant.
-@addSalon nomSalon -descriptionSalon : Créer un salon de discussion avec son nom et sa description.
-@suppSalon identifiant/nomSalon : Supprime le salon dont l'identifiant ou le pseudo est renseigné.
+@addSalon (nomSalon -descriptionSalon) : Créer un salon de discussion avec son nom et sa description.
+@suppSalon (identifiant|nomSalon) : Supprime le salon dont l'identifiant ou le pseudo est renseigné.
+@goTo (identifiant|nomSalon): Dirige l'utilisateur vers le salon dont l'identifiant ou le pseudo est renseigné.
