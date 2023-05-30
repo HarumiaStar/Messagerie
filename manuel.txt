@@ -1,12 +1,14 @@
 
 Liste des commandes :
 
-@fin : Clôt la connection 
-@list : Affiche la liste des clients connectés
-@fichierServ : Affiche la liste des fichiers disponibles sur le serveur
-@sendFile : Liste les fichiers disponible côté client pour l'envoi puis demande le nom du fichier ou l'index à envoyer et l'envoie au serveur
-@getFile : Liste les fichiers disponible côté serveur pour l'envoi puis demande le nom du fichier ou l'index à envoyer et l'envoie au client
-@(pseudo_client) (message) : envoie le message en privé à ce client
-(message) : Envoie le message à tous les clients
-@help : affiche cette liste de commande
-@addSalon nomSalon -descriptionSalon : 
+@fin : Clôt la connection.
+@list : Affiche la liste des clients connectés.
+@fichierServ : Affiche la liste des fichiers disponibles sur le serveur.
+@sendFile : Liste les fichiers disponible côté client pour l'envoi puis demande le nom du fichier ou l'index à envoyer et l'envoie au serveur.
+@getFile : Liste les fichiers disponible côté serveur pour l'envoi puis demande le nom du fichier ou l'index à envoyer et l'envoie au client.
+@(pseudo_client) (message) : envoie le message en privé à ce client.
+(message) : Envoie le message à tous les clients.
+@help : Affiche cette liste de commande.
+@getSalons : Liste les salons du serveur, "DISPONIBLE" à la création ou déjà existant.
+@addSalon nomSalon -descriptionSalon : Créer un salon de discussion avec son nom et sa description.
+@suppSalon identifiant/nomSalon : Supprime le salon dont l'identifiant ou le pseudo est renseigné.

@@ -1128,7 +1128,7 @@ int main(int argc, char *argv[])
             if (pseudo[strlen(pseudo)-1] == '\n') 
             pseudo[strlen(pseudo)-1] = '\0';
 
-            if (strncmp(pseudo, "__DÉCONNECTÉ__", 14) == 0|| strncmp(pseudo, "getFile", 7) == 0 || strncmp(pseudo, "fichierServ", 11) == 0 || strncmp(pseudo, "sendFile", 8) == 0 || strncmp(pseudo, "@fin", 4) == 0 ||strncmp(pseudo, "list", 4) == 0 ||  strncmp(pseudo, "help", 4) == 0 ||   strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo) == 1){
+            if (strncmp(pseudo, "__DÉCONNECTÉ__", 14) == 0 || strncmp(pseudo, "getSalons", 9) == 0 || strncmp(pseudo, "suppSalon", 9) == 0  || strncmp(pseudo, "addSalon", 8) == 0 || strncmp(pseudo, "getFile", 7) == 0 || strncmp(pseudo, "fichierServ", 11) == 0 || strncmp(pseudo, "sendFile", 8) == 0 || strncmp(pseudo, "@fin", 4) == 0 ||strncmp(pseudo, "list", 4) == 0 ||  strncmp(pseudo, "help", 4) == 0 ||   strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo) == 1){
                 
                 char* messagePseudo = "Pseudo déjà utilisé ou pseudo invalide";
                 send_message(dSC, messagePseudo, strlen(messagePseudo));
