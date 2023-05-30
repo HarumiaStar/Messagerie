@@ -291,7 +291,11 @@ void recevoirFichier(int index) {
 
     if(recvMessage == 0){close(dSCF); free(nom_fichier); return;}
     if(recvMessage == -1){perror("Réponse non reçue"); free(nom_fichier); return;}
-
+    for (int i = 0; i < strlen(nom_fichier); i++) {
+    if (nom_fichier[i] == '\n') {
+        nom_fichier[i] = '\0';
+    }
+}
     printf("Réponse reçue : %s\n", nom_fichier);
 
     // Reception de la taille du fichier 
@@ -696,6 +700,7 @@ void* communication(void* arg){
                 }
                 else if (cmd == -7){ // on envoi la liste des fichiers du repertoire serveur au client
                    sendFileList(index);
+                   break;
                 }
                 else if (cmd == -8){ // envoi d'un fichier au client
                     sendFileList(index);
@@ -1125,8 +1130,11 @@ int main(int argc, char *argv[])
             }
             printf("Pseudo client %d : %s\n", dSC, pseudo);
 
-            if (pseudo[strlen(pseudo)-1] == '\n') 
-            pseudo[strlen(pseudo)-1] = '\0';
+            for (int i = 0; i < strlen(pseudo); i++) {
+                if (pseudo[i] == '\n') {
+                    pseudo[i] = '\0';
+                }
+            }
 
             if (strncmp(pseudo, "__DÉCONNECTÉ__", 14) == 0 || strncmp(pseudo, "goTo", 4) == 0 || strncmp(pseudo, "getSalons", 9) == 0 || strncmp(pseudo, "suppSalon", 9) == 0  || strncmp(pseudo, "addSalon", 8) == 0 || strncmp(pseudo, "getFile", 7) == 0 || strncmp(pseudo, "fichierServ", 11) == 0 || strncmp(pseudo, "sendFile", 8) == 0 || strncmp(pseudo, "@fin", 4) == 0 ||strncmp(pseudo, "list", 4) == 0 ||  strncmp(pseudo, "help", 4) == 0 ||   strncmp(pseudo, "fin", 3) == 0 || pseudoDejaUtilise(pseudo) == 1){
                 
@@ -1144,7 +1152,6 @@ int main(int argc, char *argv[])
             
             tabClientStruct[index].dSC = dSC;
             strncpy(tabClientStruct[index].pseudo, pseudo, TAILLE_PSEUDO);
-            
             pthread_mutex_unlock(&mutex);
 
             // Ajout de l'attente du sémaphore et la création du thread avec les arguments
