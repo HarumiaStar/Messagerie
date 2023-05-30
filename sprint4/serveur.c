@@ -489,6 +489,17 @@ void addNewSalon(int index, char* nomSalon, char* descriptionSalon){
     strcpy(tabSalons[posDispo].nomSalon, nomSalon);
     strcpy(tabSalons[posDispo].descriptionSalon, descriptionSalon);
 
+    // On ajoute le salon au fichier config.txt
+    FILE *fichier = fopen("./config.txt", "a");
+    if (fichier == NULL){
+        perror("Erreur lors de l'ouverture du fichier");
+        return;
+    }
+    char* ligne = malloc(4096*sizeof(char));
+    sprintf(ligne, "%d-%s-%s\n", posDispo, nomSalon, descriptionSalon);
+    fputs(ligne, fichier);
+    fclose(fichier);
+
     // On envoie un message au client pour lui dire que le salon a été ajouté
     char* message2 = "Salon ajouté";
     printf("%s\n", message2);
@@ -503,6 +514,8 @@ void addNewSalon(int index, char* nomSalon, char* descriptionSalon){
 * @return void
 */
 void suppOldSalon(int index, int idSalon){
+    printf("Suppression du salon %d\n", idSalon);
+
     if (idSalon == 0){
         pthread_mutex_lock(&mutex);
         char* messageMaxSalon = "Impossible de supprimer le salon Général";
@@ -512,10 +525,54 @@ void suppOldSalon(int index, int idSalon){
         return;
     }
 
+    // On déplace tout les clients dans le salon général
+    pthread_mutex_lock(&mutex);
+    for (int i = 0; i < lengthTabClient; ++i) {
+        if (tabClientStruct[i].idSalon == idSalon) {
+            tabClientStruct[i].idSalon = 0;
+            // On envoie un message au client pour lui dire qu'il a été déplacé dans le salon général
+            char* message = "Vous avez été déplacé dans le salon général car le salon dans lequel vous étiez a été supprimé";
+            printf("%s\n", message);
+            send_message(tabClientStruct[i].dSC, message, strlen(message));
+        }
+    }
+    pthread_mutex_unlock(&mutex);
+
     pthread_mutex_lock(&mutex);
     strcpy(tabSalons[idSalon].nomSalon, DISPO);
     strcpy(tabSalons[idSalon].descriptionSalon, "");
-    pthread_mutex_unlock(&mutex);
+
+    // On supprime le salon au fichier config.txt
+    FILE *fichier = fopen("./config.txt", "r");
+    FILE *tmp = fopen("./tmpConfig.txt", "a");
+    if (fichier == NULL){
+        perror("Erreur lors de l'ouverture du fichier");
+        return;
+    }
+    while (feof(fichier) == 0){
+        printf("Lecture d'une ligne\n");
+        char* ligne = malloc(4096*sizeof(char));
+        fgets(ligne, 4096, fichier);
+        if (ligne[0] == '\n') continue;
+        printf("Ligne lue : %s\n", ligne);
+
+        // On recopie ligne dans id
+        char* id = malloc(256*sizeof(char));
+        strcpy(id, ligne);
+        strtok(id, "-");
+        printf("id : %s\n", id);
+        
+        if (atoi(id) != idSalon) {
+            fputs(ligne, tmp);
+
+        }
+        free(ligne);
+    };
+    fclose(fichier);
+    fclose(tmp);
+    remove("./config.txt");
+    rename("./tmpConfig.txt", "./config.txt");
+    printf("Fichier config modifié\n");
 
     // On envoie un message au client pour lui dire que le salon a été supprimé
     char* message2 = "Salon supprimé";
@@ -755,6 +812,17 @@ void* communication(void* arg){
                     // On vérifie qu'il y a bien un nom et une description
                     printf("Nom du salon : %s\n", nomSalon);
                     printf("Description du salon : %s\n", descriptionSalon);
+
+                    if (strncmp(nomSalon, DISPO, strlen(DISPO)) == 0){
+                        pthread_mutex_lock(&mutex);
+                        char* message = "Le nom du salon ne peut pas être 'DISPONIBLE'";
+                        int sended = send_message(tabClientStruct[index].dSC, message, strlen(message));
+                        if (sended == -1){
+                            printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[index].pseudo);
+                        }
+                        pthread_mutex_unlock(&mutex);
+                        break;
+                    }
 
                     if (nomSalon == "-" || descriptionSalon[0] == ' ') {
                         pthread_mutex_lock(&mutex);
