@@ -17,11 +17,14 @@
 #define TAILLE_DESCRIPTION_SALON 180
 #define DISPO "DISPONIBLE"
 
+// Structure d'un salons
 typedef struct {
     char nomSalon[TAILLE_NOM_SALON];
     char descriptionSalon[TAILLE_DESCRIPTION_SALON];
 } salon;
 
+
+// Structure info Client
 typedef struct {
     int idSalon;
     int dSC;
@@ -32,21 +35,34 @@ dSClient* tabClientStruct;
 int tailleBufferReception;
 int lengthTabClient;
 
+// Structure pour les arguments passés au thread
 typedef struct {
     long index;
 } thread_args;
 
-salon* tabSalons;
+
+// Variable pour les salons
+salon* tabSalons; // Tableau de salons
 int nbSalons;
+
+// Declaration mutex et semaphore
 pthread_mutex_t mutex;
 sem_t semaphore;
+
+
 int dSF;
 int dSlistF;
 char* tabFichiers[100];
 
+
+/**
+*@brief Fonction utilisée pour déconnecter un client
+*@param index Index du client dans le tableau des clients
+*/
 void deconnecterClient(int index) {
     pthread_mutex_lock(&mutex);
-    printf("Client %d déconnecté (recvTaille =0) \n", index);
+    printf("Client %d déconnecté \n", index);
+    // Mise à jour du tableau à l'indice donné
     tabClientStruct[index].dSC = -1;
     strncpy(tabClientStruct[index].pseudo, "__DÉCONNECTÉ__", TAILLE_PSEUDO);
     tabClientStruct[index].idSalon = 0;
@@ -54,8 +70,15 @@ void deconnecterClient(int index) {
 }
 
 
-
+/**
+*@brief Fonction qui envoi un message à un client
+*@param client_fd Adresse socket client
+*@param message Message à envoyer
+*@param message_size Taille du message à envoyer
+*@return 0 si l'envoi s'est effectué, -1 si erreur
+*/
 int send_message(int client_fd, const void *message, size_t message_size) {
+
     // Vérifier si la socket est encore ouverte
     if (client_fd < 0) {
         printf("Erreur : la socket a été fermée (client %d) \n", client_fd);
@@ -72,7 +95,6 @@ int send_message(int client_fd, const void *message, size_t message_size) {
         perror("Taille non envoyée\n");
         return -1;
     }
-    printf("Taille envoyée\n");
 
     // Envoie message
     int sendMessage = send(client_fd, message, message_size, 0);
@@ -89,7 +111,13 @@ int send_message(int client_fd, const void *message, size_t message_size) {
     return 0;
 }
 
-// Gestionnaire de signaux
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                   GESTION DES SIGNAUX                                                    //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+*@brief Fonction qui gère les signaux 
+*@param sig Signal reçu par l'OS
+*/
 void sig_handler(int sig) {
 	printf("\nSIGINT attrapé, on stop le programme %i\n", getpid());
     for (int i = 0; i < lengthTabClient; ++i) {
@@ -100,28 +128,47 @@ void sig_handler(int sig) {
     }
     exit(0);
 }
- 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                   FONCTIONS UTILES AUX FICHIERS                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+*@brief Fonction qui gère l'envoi au client d'un fichier
+*@param index Index du client
+*/
 void getFile(int index){
 
     // Reception du nom du fichier 
     printf("Reception du nom du fichier\n");
+
+    // Variables utiles
     char* chemin_fichier = (char*)malloc(150*sizeof(char));
     char* nom_fichier = malloc(50*sizeof(char));
 
+    // Réception du nom du fichier
     pthread_mutex_lock(&mutex);
     int recvMessage = recv(tabClientStruct[index].dSC, nom_fichier, 50, 0);
     pthread_mutex_unlock(&mutex);
 
     if(recvMessage == 0){deconnecterClient(index); free(nom_fichier); return;}
     if(recvMessage == -1){perror("Réponse non reçue"); free(nom_fichier); return;}
-
-    printf("Réponse reçue : %s\n", nom_fichier);
-
+    
+    // Gestion des caractères
     nom_fichier[strlen(nom_fichier)] = '\0';
+    
 
     if (nom_fichier[strlen(nom_fichier)-1] == '\n') // On enlève le \n de la chaine
-            nom_fichier[strlen(nom_fichier)-1] = '\0';
+        nom_fichier[strlen(nom_fichier)-1] = '\0';
     
+    for (int i = 0; i < strlen(nom_fichier); i++) {
+        if (nom_fichier[i] == '\n') {
+            nom_fichier[i] = '\0';
+        }
+    }
+    
+
+
+    // Gestion en fonction de si on a envoyé un indice ou le nom du fichier directement
     size_t len = strlen(nom_fichier);
     int i = 0;
     int isDigit = 1;
@@ -131,15 +178,15 @@ void getFile(int index){
         }
         i++;
     }
+    
     if (isDigit){ // C'est l'indice du fichier
         nom_fichier = tabFichiers[atoi(nom_fichier)]; // On récupère le nom du fichier depuis le tableau
     }
 
+    printf("Nom du fichier a envoyer : %s\n", nom_fichier);
     // Creation du chemin du fichier
     strcpy(chemin_fichier,"./filesServeur/");
     strcat(chemin_fichier,nom_fichier);
-
-    printf("Chemin: %s\n",chemin_fichier);
 
     // ouverture du fichier
     FILE *fichier = fopen(chemin_fichier, "r");
@@ -150,7 +197,7 @@ void getFile(int index){
 
 
     // prevenir le client de la reception:
-    // envoi code commande fichier au client: (previent le serveur qu'on veut envoyer un fichier)
+    // envoi code commande fichier au client: (previent le client qu'on veut envoyer un fichier)
     char* messWrite = (char*)malloc(50*sizeof(char));
     strcpy(messWrite,"@writeFile");
     
@@ -160,7 +207,7 @@ void getFile(int index){
     int taille= send(tabClientStruct[index].dSC,&a,sizeof(int),0);
     pthread_mutex_unlock(&mutex);
     if(taille ==-1){
-        printf("ERRROR\n");
+        printf("Erreur lors de l'envoi de la taille de la commande @writeFile au client \n");
     }
     
     //envoi du messWrite
@@ -168,12 +215,10 @@ void getFile(int index){
     int envoi = send(tabClientStruct[index].dSC,messWrite, sizeof(char)*25,0);
     pthread_mutex_unlock(&mutex);
     if(envoi == -1){
-        printf("erreur\n");
+        printf("Erreur lors de l'envoi de la commande @writeFile au client \n");
     }
-    printf("on a envoyé la commande: %s \n", messWrite);
 
 
-    //// ICI ///////////////////////////////////////////////
     // connection du socket
     printf("Connexion du client à la socket getFile\n");
     struct sockaddr_in aClistF;
@@ -190,10 +235,8 @@ void getFile(int index){
 
     int envoie = send(dSClistF,nom_fichier, sizeof(char)*25,0);
     if(envoie == -1){
-        printf("erreur\n");
+        printf("Erreur lors de l'envoi au client du nom du fichier\n");
     }
-
-    printf("on a envoyé le nom du fichier \n");
 
 
     // calcule de la taille du fichier 
@@ -203,7 +246,6 @@ void getFile(int index){
     fsize = ftell(fichier);
     rewind(fichier);// remise du curseur de lecture à 0
 
-    printf("%d\n",fsize);
 
     // envoi taille du fichier au client
     int sending = send(dSClistF,&fsize,sizeof(int),0 );
@@ -222,7 +264,6 @@ void getFile(int index){
             printf("Erreur lors de l'envoi du fichier\n");
         }
         bytes_sent+=sended;
-        printf("%d\n",bytes_sent);
     }
     close(dSClistF);
     fclose(fichier);
@@ -231,11 +272,20 @@ void getFile(int index){
 
 
 }
+
+
+/**
+*@brief Fonction qui gère l'envoi au client de la liste des fichiers
+*@param index Index du client
+*/
 void sendFileList(int index) {
     char fileList[500];
-    strcpy(fileList, "Voici la liste des fichiers du serveur:\n");
     char line[270];
 
+    //Preparation du bloc d'envoi
+    strcpy(fileList, "Voici la liste des fichiers du serveur:\n");
+
+    // Ouverture du repertoire
     DIR *dir;
     struct dirent *entry;
 
@@ -256,7 +306,7 @@ void sendFileList(int index) {
     }
 
     closedir(dir);
-
+    // Envoi de la liste au client
     pthread_mutex_lock(&mutex);
     int sent = send_message(tabClientStruct[index].dSC, fileList, strlen(fileList));
     if (sent == -1) {
@@ -265,9 +315,13 @@ void sendFileList(int index) {
     pthread_mutex_unlock(&mutex);
 }
 
+/**
+*@brief Fonction qui gère la reception de fichier
+*@param index Index du client
+*/
 void recevoirFichier(int index) {
+    
     // Reception du nom du fichier 
-
     printf("Connexion du client à la socket sendFile\n");
     struct sockaddr_in aC;
     socklen_t lg = sizeof(struct sockaddr_in);
@@ -279,34 +333,31 @@ void recevoirFichier(int index) {
     }
     printf("Client %d Connecté \n", index);
 
+    // Envoi la confirmation de la synchronisation
     char ack[] = "ACK";
     send(dSCF, ack, strlen(ack) + 1, 0);
 
-
-
-    printf("Reception du nom du fichier\n");
-
+    // Reception du nom du fichier
     char* nom_fichier = malloc(50*sizeof(char));
     int recvMessage = recv(dSCF, nom_fichier, 50, 0);
 
     if(recvMessage == 0){close(dSCF); free(nom_fichier); return;}
     if(recvMessage == -1){perror("Réponse non reçue"); free(nom_fichier); return;}
+    
+    // Gestion des caractères
     for (int i = 0; i < strlen(nom_fichier); i++) {
     if (nom_fichier[i] == '\n') {
         nom_fichier[i] = '\0';
     }
 }
-    printf("Réponse reçue : %s\n", nom_fichier);
+    printf("\nFichier a recevoir : %s\n", nom_fichier);
 
     // Reception de la taille du fichier 
-    printf("Reception de la taille du  fichier\n");
     int tailleBufferReception;
     int recvTaille = recv(dSCF, &tailleBufferReception, sizeof(int), 0);
 
     if (recvTaille == 0) {close(dSCF); free(nom_fichier); return;}
     if (recvTaille == -1){perror("Taille non reçue\n"); free(nom_fichier); return;}
-
-    printf("la taille %d\n", tailleBufferReception);
 
     // on créer le chemin du fichier pour le repertoire filesServeur
     char chemin_fichier[256];
@@ -321,6 +372,7 @@ void recevoirFichier(int index) {
     }
 
     int taille_recu = 0; // on calcul la taille 
+    // Reception du fichier par bouts
     char buffer[500];
     while (taille_recu < tailleBufferReception) {
         
@@ -335,31 +387,105 @@ void recevoirFichier(int index) {
         }
         fwrite(buffer, 1, recv_size, fichier); // on ecrit dans fichier le buffer reçu
         taille_recu += recv_size;
-        printf("taille recu: %d\n",taille_recu);
     }
     close(dSCF);
     fclose(fichier);
     free(nom_fichier);
-    printf("Fichier reçu avec succès !\n");
+    printf("\nFichier reçu avec succès !\n");
 }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                  FIN FONCTIONS UTILES AUX FICHIERS                                       //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                   GESTION DES COMMANDES                                                  //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+*@brief Fonction qui vérifie si le message est un message de commande
+*@param message Message envoyé par le client ou par le serveur
+*@return 1 si il s'agit d'une commande, 0 sinon
+*/
 int verif_commande(char* message) {
     char cmp = '@';
-    printf("message[0] = %c \n", message[0]);
     if (message[0] == cmp) {
-        printf("Ceci est une commande\n");
         return 1;
     }
     else {
-        printf("C'est un message\n");
         return 0;
     }
 }
 
+/**
+*@brief Fonction qui indique quelle commande est contenue dans le message
+*@param mess Message envoyé par le client ou par le serveur
+*@return -1 si il ne s'agit pas d'une commande, 
+        -2 si il s'agit de la commande de déconnection fin
+        -3 si il s'agit de la commande de message privé
+        -4 si il s'agit de l'envoi de la liste des clients du serveur
+        -5 si il s'agit de l'envoi du manuel help
+        -6 si on s'apprête à recupérer un fichier depuis le client
+        -7 si on doit envoyer la liste des fichiers du repertoire serv au client
+        -8 si il s'agit de la commande d'envoi de fichier au client
+        -9 si il s'agit de la commande pour le changement de salon
+        -10 si on doit envoyer la liste des salons disponibles
+        -11 si on doit créer un nouveau salon de discussion
+        -12 si on veut supprimer un salon de discussion
+
+*/
+int commande(char* mess){
+    if (verif_commande(mess) == 1){
+        char* message = (char*) malloc(strlen(mess) * sizeof(char));
+        strcpy(message, mess); // on copie le message pour pouvoir le modifier
+        char* cmd = strtok(message, " "); // on isole l'élément après l'@ 
+        cmd = strtok(cmd, "@"); // on récup l'élément après l'@ (le nom de la commande)
+        
+
+        if (strncmp(cmd,"fin", 3) == 0) return -2; 
+        else if (strncmp(cmd, "list", 4) == 0) return -4; 
+        else if (strncmp(cmd, "help", 4) == 0) return -5; 
+        else if (strncmp(cmd,"file", 4)==0) return -6 ; 
+        else if (strncmp(cmd,"fichierServ",11) == 0) return -7; 
+        else if ( strncmp(cmd,"getFile", 7) == 0) return -8; 
+        else if (strncmp(cmd,"goTo", 4) == 0) return -9; 
+        else if (strncmp(cmd,"getSalons", 9) == 0) return -10; 
+        else if (strncmp(cmd, "addSalon", 8) == 0) return -11; 
+        else if (strncmp(cmd, "suppSalon", 9) == 0) return -12; 
+        else {
+            
+            char target_pseudo[TAILLE_PSEUDO]; 
+
+            if (sscanf(message, "@%s\n", target_pseudo) != 1) {
+                printf("Erreur de lecture du pseudo\n");
+            }
+            pthread_mutex_lock(&mutex);
+            int target_index = -3;
+            for (int i = 0; i < lengthTabClient; ++i) {
+                if (strcmp(tabClientStruct[i].pseudo, target_pseudo) == 0) {
+                    target_index = i;
+                    break;
+                }        
+            }
+            pthread_mutex_unlock(&mutex);
+            return target_index; 
+        }
+    }
+    return -1; 
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                   FIN GESTION DES COMMANDES                                              //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                   FONCTION DE RECHERCHE DANS LES TABLEAUX                                //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+* @brief Fonction qui permet de récupérer le premier indice disponible à la création d'un client
+* @return int Indice dans le tableau des clients
+*/
 int trouverIndexDisponible() {
     pthread_mutex_lock(&mutex);
     for (int j = 0; j < lengthTabClient; j++) {
-        printf("Client %d : %s\n", tabClientStruct[j].dSC, tabClientStruct[j].pseudo);
         if (tabClientStruct[j].dSC == -1) {
             pthread_mutex_unlock(&mutex);
             return j;
@@ -369,51 +495,34 @@ int trouverIndexDisponible() {
     return -1;
 }
 
-// Regarde à qui on envoie le message privé
-int commande(char* mess){
-    if (verif_commande(mess) == 1){
-        char* message = (char*) malloc(strlen(mess) * sizeof(char));
-        strcpy(message, mess); // on copie le message pour pouvoir le modifier
-        char* cmd = strtok(message, " "); // on isole @(truc)
-        cmd = strtok(cmd, "@"); // on récup l'(truc)
-        printf("cmd %s \n", cmd);
-
-        if (strncmp(cmd,"fin", 3) == 0) return -2; //on renvoie -2 si truc == fin
-        else if (strncmp(cmd, "list", 4) == 0) return -4; //on renvoie -4 si truc == list
-        else if (strncmp(cmd, "help", 4) == 0) return -5; //on renvoie -5 si truc == help
-        else if (strncmp(cmd,"file", 4)==0) return -6 ; // on renvoie -6 si truc == file et donc qu'on s'apprête à recupérer un fichier depuis le client
-        else if (strncmp(cmd,"fichierServ",11) == 0) return -7; // on renvoi la liste des fichiers du repertoire serv au client
-        else if ( strncmp(cmd,"getFile", 7) == 0) return -8; // on envoi le fichier demandé par le client
-        else if (strncmp(cmd,"goTo", 4) == 0) return -9; //on renvoie -9 si truc == goTo pour le changement de salon
-        else if (strncmp(cmd,"getSalons", 9) == 0) return -10; // on renvoi la liste des salons disponibles
-        else if (strncmp(cmd, "addSalon", 8) == 0) return -11; // On créé un nouveau salon de discussion
-        else if (strncmp(cmd, "suppSalon", 9) == 0) return -12; // On supprimer un salon de discussion
-        else {
-            printf("Message privé ...\n");
-            char target_pseudo[TAILLE_PSEUDO]; // Assurez-vous de définir une longueur maximale pour les pseudos
-
-            if (sscanf(message, "@%s\n", target_pseudo) != 1) {
-                printf("Erreur de lecture du pseudo\n");
-            }
-            pthread_mutex_lock(&mutex);
-            int target_index = -3;
-            for (int i = 0; i < lengthTabClient; ++i) {
-                printf("%s ?= %s\n", tabClientStruct[i].pseudo, target_pseudo);
-                if (strcmp(tabClientStruct[i].pseudo, target_pseudo) == 0) {
-                    target_index = i;
-                    break;
-                }        
-            }
-            pthread_mutex_unlock(&mutex);
-            printf("Message privé à %s dont l'id est %d\n", target_pseudo, target_index);
-            return target_index; //on renvoie si truc => index sinon renvoie -3 le pseudo n'existe pas
+/**
+* @brief Fonction qui permet de récupérer le premier salon disponible à la création
+* @return int Indice de la position trouvée
+*/
+int getPositionFreeSalon(){
+    int i = 0;
+    int pos = 0;
+    while (i < nbSalons && pos == 0){
+        int changement = strncmp(tabSalons[i].nomSalon, DISPO, TAILLE_NOM_SALON);
+        
+        if (changement == 0){
+            return i;
         }
+        i++;
     }
-    return -1; // pas une commande
+    return -1;
 }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                   FONCTIONS RELATIVES AUX SALONS                                         //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+* @brief Fonction qui permet de récupérer l'id du salon demandé
+* @param nomSalonDemande : nom du salon demande
+* @return int Id du salon demande
+*/
 int idSalonDemande(char * nomSalonDemande){
-    printf("Nom du salon demandé : %s\n", nomSalonDemande);
+    printf("\nNom du salon demandé : %s\n", nomSalonDemande);
     
     size_t len = strlen(nomSalonDemande);
     int j = 0;
@@ -425,14 +534,12 @@ int idSalonDemande(char * nomSalonDemande){
         j++;
     }
     if (isDigit){ // C'est l'indice du salon
-        printf("C'est un indice %d\n", atoi(nomSalonDemande));
         return atoi(nomSalonDemande);
     }
 
     int i = 0;
     while (i < nbSalons){
         if (strncmp(tabSalons[i].nomSalon, nomSalonDemande, strlen(nomSalonDemande)) == 0){
-            printf("Salon trouvé\n");
             return i;
         }
         i++;
@@ -440,23 +547,6 @@ int idSalonDemande(char * nomSalonDemande){
     return -1;
 }
 
-/**
-* @brief Fonction qui permet de récupérer le premier salon disponible à la création
-* @return int
-*/
-int getPositionFreeSalon(){
-    int i = 0;
-    int pos = 0;
-    while (i < nbSalons && pos == 0){
-        int aaa = strncmp(tabSalons[i].nomSalon, DISPO, TAILLE_NOM_SALON);
-        printf("STRNCPM TABSALON : %d\n", aaa);
-        if (aaa == 0){
-            return i;
-        }
-        i++;
-    }
-    return -1;
-}
 
 /**
 * @brief Fonction qui permet de créer un nouveau salon de discussion et de l'ajouter au tableau des salons
@@ -466,13 +556,12 @@ int getPositionFreeSalon(){
 * @return void
 */
 void addNewSalon(int index, char* nomSalon, char* descriptionSalon){
-    printf("Création d'un nouveau salon\n");
+    printf("\nCréation d'un nouveau salon\n");
     // On vérifie que le nombre de salons n'est pas dépassé
     int posDispo = getPositionFreeSalon();
     if (posDispo == -1) {
         pthread_mutex_lock(&mutex);
         char* messageMaxSalon = "Nombre de salons dépassé";
-        printf("%s\n", messageMaxSalon);
         send_message(tabClientStruct[index].dSC, messageMaxSalon, strlen(messageMaxSalon));
         pthread_mutex_unlock(&mutex);
         return;
@@ -518,7 +607,7 @@ void addNewSalon(int index, char* nomSalon, char* descriptionSalon){
 * @return void
 */
 void suppOldSalon(int index, int idSalon){
-    printf("Suppression du salon %d\n", idSalon);
+    printf("\nSuppression du salon %d\n", idSalon);
 
     if (idSalon == 0){
         pthread_mutex_lock(&mutex);
@@ -536,7 +625,6 @@ void suppOldSalon(int index, int idSalon){
             tabClientStruct[i].idSalon = 0;
             // On envoie un message au client pour lui dire qu'il a été déplacé dans le salon général
             char* message = "Vous avez été déplacé dans le salon général car le salon dans lequel vous étiez a été supprimé";
-            printf("%s\n", message);
             send_message(tabClientStruct[i].dSC, message, strlen(message));
         }
     }
@@ -554,17 +642,15 @@ void suppOldSalon(int index, int idSalon){
         return;
     }
     while (feof(fichier) == 0){
-        printf("Lecture d'une ligne\n");
+        // lecture d'une ligne
         char* ligne = malloc(4096*sizeof(char));
         fgets(ligne, 4096, fichier);
         if (ligne[0] == '\n') continue;
-        printf("Ligne lue : %s\n", ligne);
 
         // On recopie ligne dans id
         char* id = malloc(256*sizeof(char));
         strcpy(id, ligne);
         strtok(id, "-");
-        printf("id : %s\n", id);
         
         if (atoi(id) != idSalon) {
             fputs(ligne, tmp);
@@ -576,7 +662,6 @@ void suppOldSalon(int index, int idSalon){
     fclose(tmp);
     remove("./config.txt");
     rename("./tmpConfig.txt", "./config.txt");
-    printf("Fichier config modifié\n");
 
     // On envoie un message au client pour lui dire que le salon a été supprimé
     char* message2 = "Salon supprimé";
@@ -585,6 +670,19 @@ void suppOldSalon(int index, int idSalon){
     pthread_mutex_unlock(&mutex);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                  FIN FONCTIONS RELATIVES AUX SALONS                                      //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                    FONCTION UTILISE PAR LE THREAD                                        //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+*@brief Fonction utilisée pour la communication avec les clients
+*@param args 
+*/
 void* communication(void* arg){
 
     thread_args *args = (thread_args *) arg;
@@ -599,7 +697,6 @@ void* communication(void* arg){
         if (recvTaille == 0) {deconnecterClient(index);break;}
         if (recvTaille == -1){perror("Taille non reçue\n");break;}
 
-        printf("la taille %d\n", tailleBufferReception);
         
 
         // Reception message
@@ -610,19 +707,18 @@ void* communication(void* arg){
         if(recvMessage == 0){deconnecterClient(index);break;}
         if(recvMessage == -1){perror("Réponse non reçue");break;}
 
-        printf("Réponse reçue : %s\n", message1);
+        printf("\nMessage reçue \n");
 
         long i = 0;
         while (i < lengthTabClient && sortie == 0){
             if (i != index){
                 // Recuperation du code commande
                 int cmd = commande(message1);
-                printf("cmd == %d\n",cmd);
 
                 if (cmd == -1){ // On envoie le message à tout le monde
                     pthread_mutex_lock(&mutex);
                     if (tabClientStruct[i].idSalon == tabClientStruct[index].idSalon && tabClientStruct[i].dSC != -1) {
-                        printf("Envoi du message à %s\n", tabClientStruct[i].pseudo);
+                        
                         int sended = send_message(tabClientStruct[i].dSC, message1, tailleBufferReception);
                         if (sended == -1){
                             printf("Erreur lors de l'envoi du message à %s\n", tabClientStruct[i].pseudo);
@@ -634,7 +730,6 @@ void* communication(void* arg){
                 }
                 else if (cmd == -2) { // Déconnecter l'utilisateur actuel uniquement
                     printf("Déconnexion du client %ld\n", index);
-                    printf("Client %s déconnecté (fin) \n", tabClientStruct[index].pseudo);
                     sortie = 1;
                     break;
                 }
@@ -651,12 +746,11 @@ void* communication(void* arg){
                 }
                 else if (cmd == -4){ // On demande la liste des utilisateurs
                     pthread_mutex_lock(&mutex);
-                    printf("\nListe des utilisateurs connectés :\n");
+                    printf("\nEnvoi liste des utilisateurs connectés \n");
                     char* message = malloc(4096*sizeof(char));
                     strcat(message, "Liste des utilisateurs connectés :\n");
                     for (int j = 0; j < lengthTabClient; ++j) {
                         if (strncmp(tabClientStruct[j].pseudo, "__DÉCONNECTÉ__", 14) != 0) {
-                            printf("Client %d : %s\n", j ,tabClientStruct[j].pseudo);
                             strcat(message, tabClientStruct[j].pseudo);
                             strcat(message, " dans le salon :");
                             char idSalon[2];
@@ -681,7 +775,6 @@ void* communication(void* arg){
                     char* manuel = malloc(4096*sizeof(char));
                     char* ligne = malloc(4096*sizeof(char));
                     while (fgets(ligne, 4096, fichier) != NULL){
-                        printf("%s", manuel);
                         strcat(manuel, ligne);
                     }
                     fclose(fichier);
@@ -694,7 +787,7 @@ void* communication(void* arg){
                     break;
                 }
                 else if (cmd == -6){ // on receptionne le fichier client uploader
-                    printf("zone de reception fichier\n");
+                    printf("\nReception fichier\n");
                     recevoirFichier(index);
                     break;
                 }
@@ -704,24 +797,19 @@ void* communication(void* arg){
                 }
                 else if (cmd == -8){ // envoi d'un fichier au client
                     sendFileList(index);
-                    printf("Avant d'entré\n");
                     getFile(index);
-                    printf("Après être entré\n");
                     break;
                 }
                 else if (cmd == -9){ // @goTo 2
                 
-                    printf("Commande goTo lancée \n");
+                    printf("Changement de salon d'un utilisateur \n");
 
                     pthread_mutex_lock(&mutex);
 
                     char* nomSalonDemande = malloc(TAILLE_NOM_SALON*sizeof(char));
                     strcpy(nomSalonDemande, message1);
-                    printf("strcpy fait, nomSalonDemande = %s \n", nomSalonDemande);
 
                     if (nomSalonDemande[strlen(nomSalonDemande)-1] == '\n') nomSalonDemande[strlen(nomSalonDemande)-1] == '\0';
-
-                    printf("nom du salon %s \n", nomSalonDemande);
 
                     nomSalonDemande = strtok(nomSalonDemande, " ");
                     nomSalonDemande = strtok(NULL, " ");
@@ -732,10 +820,10 @@ void* communication(void* arg){
                         }
                     }
 
-                    printf("nom du salon après strtok %s \n", nomSalonDemande);
+                    printf("nom du salon: %s \n", nomSalonDemande);
                     
                     int idSalon = idSalonDemande(nomSalonDemande);
-                    printf("idSalon = %d\n", idSalon);
+
                     if (idSalon == -1) {
                         printf("Salon non trouvé\n");
                         send_message(tabClientStruct[index].dSC, "Salon non trouvé", strlen("Salon non trouvé"));
@@ -745,16 +833,13 @@ void* communication(void* arg){
                     tabClientStruct[index].idSalon = idSalon;
 
                     char* newMessage = malloc(4096*sizeof(char));
-
-                    strcat(newMessage, "@idSalon ");
+                    sprintf(newMessage,"%s", "@idSalon ");
 
                     char idSalonToChar[2];
                     sprintf(idSalonToChar, "%d", idSalon);
                     strcat(newMessage, idSalonToChar);
 
                     strcat(newMessage, "\n");
-
-                    printf("Nouveau message : %s\n", newMessage);
 
                     int sended = send_message(tabClientStruct[index].dSC, newMessage, tailleBufferReception);
                     if (sended == -1){
@@ -789,7 +874,7 @@ void* communication(void* arg){
                     break;
                 }
                 else if (cmd == -11){ // Création d'un nouveau salon
-                    // @addSalon nomSalon - descriptionSalon - envoyé par ...
+                    // @addSalon nomSalon -descriptionSalon - envoyé par ...
                     // On récupère le nom du salon
                     char* nomSalon = malloc(TAILLE_NOM_SALON*sizeof(char));
                     strcpy(nomSalon, message1);
@@ -879,6 +964,7 @@ void* communication(void* arg){
                     break;
                 }
                 else if (cmd == i){ // On envoie le message privé
+                    printf("message privé\n");
                     pthread_mutex_lock(&mutex);
                     int sended = send_message(tabClientStruct[i].dSC, message1, tailleBufferReception);
                     if (sended == -1){
@@ -891,9 +977,8 @@ void* communication(void* arg){
         }
     }
     
-    printf("Sortie, déconnexion du client %s %ld\n", tabClientStruct[index].pseudo ,index);
+    printf("Sortie, déconnexion du client %s\n", tabClientStruct[index].pseudo);
     deconnecterClient(index);
-    printf("Client %s déconnecté (fin) \n", tabClientStruct[index].pseudo);
 
     sem_post(&semaphore);
     free(args);
@@ -901,6 +986,11 @@ void* communication(void* arg){
 }
 
 //  fonction pseudo déjà utilisé
+/**
+* @brief Fonction qui permet de dire si un pseudo est déjà utilisé
+* @param pseudo Le pseudo recherché 
+* @return 0 si pas déjà utilisé, sinon 1
+*/
 int pseudoDejaUtilise(char* pseudo){
     
     for (int i = 0; i < lengthTabClient; i++){
@@ -913,6 +1003,11 @@ int pseudoDejaUtilise(char* pseudo){
     }
     return 0;
 }
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                 MAIN                                                     //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char *argv[])
 {
@@ -1047,11 +1142,9 @@ int main(int argc, char *argv[])
     fsize = ftell(config);
     rewind(config);// remise du curseur de lecture à 0
 
-    printf("%d\n",fsize);
 
     // si fichier vide on passe
     if (fsize != 0){
-        printf("on passe \n");
         // on récupère chaque ligne de fichier qu'on implémente dans le tableau initialisé de base
         int id;
         char* nom;
@@ -1059,11 +1152,9 @@ int main(int argc, char *argv[])
 
         char* ligne = malloc(256*sizeof(char));
         while (fgets(ligne, 256, config) != 0){
-            printf("%s", ligne);
             id = atoi(strtok(ligne, "-"));
             nom = strtok(NULL, "-");
             description = strtok(NULL, "-");
-            printf("%d - %s - %s \n ", id, nom, description);
 
             if (description[strlen(description-1)] == '\n') description[strlen(description-1)] = '\0';
 
@@ -1097,7 +1188,6 @@ int main(int argc, char *argv[])
         
         // On verifie que le client peut rentrer soit qu'il y ait des jetons
         sem_wait(&semaphore);
-        printf("Client connecté\n");
         // Recherche d'un emplacement vide dans le tableau tabClientStruct
         int index = trouverIndexDisponible();
 
@@ -1112,7 +1202,6 @@ int main(int argc, char *argv[])
                 printf("Client %d non connecté \n", index);
                 continue;
             }
-            printf("Client %d Connecté \n", index);
 
             char ack[] = "ACK";
             send(dSC, ack, strlen(ack) + 1, 0);
@@ -1128,7 +1217,7 @@ int main(int argc, char *argv[])
                 perror("Pseudo non reçue");
                 continue;
             }
-            printf("Pseudo client %d : %s\n", dSC, pseudo);
+            printf("Pseudo client %d : %s\n", index, pseudo);
 
             for (int i = 0; i < strlen(pseudo); i++) {
                 if (pseudo[i] == '\n') {
